@@ -8,7 +8,7 @@
 <img src = "https://files.catbox.moe/adymbp.jpg"  width="300" height="200">
 </img>
  <p align="center">
-  <a href="#"><img src="http://readme-typing-svg.herokuapp.com?color=ff00ab&center=true&vCenter=true&multiline=false&lines=TREND-X+MD+WHATSAPP+BOT+MD" alt="">
+  <a href="#"><img src="http://readme-typing-svg.herokuapp.com?color=ff00ab&center=true&vCenter=true&multiline=false&lines=TREND-XMD+WHATSAPP+BOT+MD" alt="">
    
 ## 𝐃𝐄𝐏𝐋𝐎𝐘 𝐒𝐄𝐓𝐔𝐏 ↕️
 
@@ -16,7 +16,7 @@
 
 *_Start by forking this repository to your own GitHub account. Click the button below to fork:_*
 
-  <a href="https://github.com/trendex2030/TREND-XMD/fork"><img title="TREND-XMD" src="https://img.shields.io/badge/FORK-TREND-Xh?color=darkblue&style=for-the-badge&logo=stackshare"></a>
+  <a href="https://github.com/trendex2030/TREND-XMD/fork"><img title="TREND-XMD" src="https://img.shields.io/badge/FORK-TREND-XMDh?color=darkblue&style=for-the-badge&logo=stackshare"></a>
 
 <a><img src='https://i.imgur.com/LyHic3i.gif'/>
 
