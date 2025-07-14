@@ -16,7 +16,7 @@
 
 *_Start by forking this repository to your own GitHub account. Click the button below to fork:_*
 
-  <a href="https://github.com/trendex2030/TREND-XMD/fork"><img title="TREND-X" src="https://img.shields.io/badge/FORK-TREND-Xh?color=darkblue&style=for-the-badge&logo=stackshare"></a>
+  <a href="https://github.com/trendex2030/TREND-XMD/fork"><img title="TREND-XMD" src="https://img.shields.io/badge/FORK-TREND-Xh?color=darkblue&style=for-the-badge&logo=stackshare"></a>
 
 <a><img src='https://i.imgur.com/LyHic3i.gif'/>
 
@@ -39,12 +39,12 @@
    
   1..DEPLOY ON HEROKU ⤵️
   
-[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://dashboard.heroku.com/new?template=https%3A%2F%2Fgithub.com%2Ftrendex2030%2FTREND-X) 
+[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://dashboard.heroku.com/new?template=https%3A%2F%2Fgithub.com%2Ftrendex2030%2FTREND-XMD) 
    
    
   2..DEPLOY ON RENDER ⤵️
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/trendex2030/TREND-X.git)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/trendex2030/TREND-XMD.git)
 
 
    3..DEPLOY ON GITHUB ⤵️
