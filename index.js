@@ -122,15 +122,21 @@ async function connectToWA() {
         }
       } else if (connection === 'open') {
         try {
-          console.log('[ 🧬 ] Installing Plugins')
+          console.log('[ 🧬 ] Installing commands')
 
-          fs.readdirSync("./plugins/").forEach((plugin) => {
-            if (path.extname(plugin).toLowerCase() === ".js") {
-              require("./plugins/" + plugin)
-            }
-          })
+          global.commands = new Map()
 
-          console.log('[ ✔ ] Plugins installed successfully ✅')
+function loadCommands() {
+  const commandFiles = fs.readdirSync("./commands").filter(file => file.endsWith(".js"))
+  for (const file of commandFiles) {
+    const command = require(`./commands/${file}`)
+    if (command.name) {
+      global.commands.set(command.name, command)
+    }
+  }
+}
+
+          console.log('[ ✔ ] commands installed successfully ✅')
           console.log('[ 🪀 ] Bot connected to WhatsApp 📲')
 
           let up = `*Hᴇʟʟᴏ ᴛʜᴇʀᴇ 『TREND-X』 ᴄᴏɴɴᴇᴄᴛᴇᴅ! 👋🏻* 
