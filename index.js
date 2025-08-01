@@ -8,7 +8,7 @@ const mega = require('megajs');
 const axios = require('axios');
 const moment = require('moment-timezone');
 
-const SESSION_ID = 'trend-xmd~session'; // session prefix
+const SESSION_ID = 'trend-x~session'; // session prefix
 const OWNER_NUMBER = '254734939236'; // change to your number
 const CREATOR_NAME = 'trendex';
 
