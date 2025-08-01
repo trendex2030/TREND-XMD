@@ -1,7 +1,18 @@
-FROM node:lts-buster
-WORKDIR /app
+# Use official Node.js base image
+FROM node:18
+
+# Create app directory
+WORKDIR /usr/src/app
+
+# Install app dependencies
 COPY package*.json ./
-RUN npm install && npm install -g qrcode-terminal pm2
+RUN npm install
+
+# Bundle app source
 COPY . .
+
+# Expose a port for Heroku/Render
 EXPOSE 3000
-CMD ["npm", "start"]
+
+# Start the bot
+CMD [ "npm", "start" ]
