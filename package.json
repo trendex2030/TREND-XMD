@@ -14,7 +14,7 @@
   },
   "author": "Trendex",
   "dependencies": {
-        "@whiskeysockets/baileys": "https://github.com/trendex2030/Baileys/archive/refs/tags/v2.0.5.tar.gz",
+        "@whiskeysockets/baileys": "https://github.com/trendex2030/Baileys#main",
         "@rodrigogs/baileys-store" : "^1.0.1",
         "adm-zip": "^0.5.16",
         "better-sqlite3": "^11.10.0",
