@@ -1,422 +1,191 @@
-// TREND-XMD v1.0.0 - by Trendex
-// Session: trend-xmd~MEGA
-const {
-  default: makeWASocket,
-  useMultiFileAuthState,
-  DisconnectReason,
-  fetchLatestBaileysVersion,
-  makeCacheableSignalKeyStore,
-} = require('@whiskeysockets/baileys')
-const { Boom } = require('@hapi/boom')
-const express = require('express')
-const fs = require('fs')
-const path = require('path')
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, downloadContentFromMessage, jidNormalizedUser } = require('@whiskeysockets/baileys')
 const pino = require('pino')
-const mega = require('megajs')
-const figlet = require('figlet')
-const chalk = require('chalk')
+const fs = require('fs')
+const os = require('os')
+const path = require('path')
+const { execSync } = require('child_process')
+const Mega = require('megajs')
+const express = require('express')
+const app = express()
 
-// ===== CONFIG =====
-const SESSION_NAME = 'trend-xmd~session'
-const SESSION_FOLDER = './auth_info'
-const MEGA_EMAIL = process.env.MEGA_EMAIL || 'your-mega-email@example.com'
-const MEGA_PASSWORD = process.env.MEGA_PASSWORD || 'your-mega-password'
+// Config
+const BOT_NAME = 'TREND-XMD'
+const CREATOR = 'trendex'
+const SESSION_ID = `trend-x~${Date.now().toString(36)}`
+const SESSION_FOLDER = './auth_info_baileys'
 
-// ===== HELPER: Download session from MEGA if missing =====
-async function downloadSessionFromMega() {
-  if (fs.existsSync(SESSION_FOLDER)) return
+// Ensure session dir exists
+if (!fs.existsSync(SESSION_FOLDER)) fs.mkdirSync(SESSION_FOLDER)
 
-  console.log(chalk.yellow('⏬ Session not found locally. Fetching from MEGA...'))
+// Start Express server (Heroku compatibility)
+app.get('/', (_, res) => res.send(`${BOT_NAME} is alive.`))
+app.listen(process.env.PORT || 3000)
 
-  const storage = mega({ email: MEGA_EMAIL, password: MEGA_PASSWORD })
-  await new Promise((resolve, reject) => storage.once('ready', resolve))
-  const file = storage.files.find(f => f.name === `${SESSION_NAME}.zip`)
-  if (!file) return console.log(chalk.red('❌ Session not found in MEGA. Starting fresh.'))
+// MEGA Upload (optional)
+async function backupSessionToMega() {
+  const email = process.env.MEGA_EMAIL
+  const password = process.env.MEGA_PASSWORD
+  if (!email || !password) return console.log('🔒 MEGA credentials not set. Skipping backup.')
 
-  file.download()
-    .pipe(fs.createWriteStream(`${SESSION_NAME}.zip`))
-    .on('finish', () => {
-      // You can unzip here if zipped session used
-      console.log(chalk.green('✅ Session downloaded from MEGA'))
-    })
+  const storage = await Mega.login({ email, password }).catch(() => null)
+  if (!storage) return console.log('❌ MEGA login failed.')
+
+  const sessionZip = `${SESSION_ID}.zip`
+  execSync(`zip -r ${sessionZip} ${SESSION_FOLDER}`)
+
+  const up = storage.upload(sessionZip)
+  fs.createReadStream(sessionZip).pipe(up)
+  up.on('complete', () => {
+    fs.unlinkSync(sessionZip)
+    console.log(`✅ Session uploaded to MEGA as ${sessionZip}`)
+  })
 }
 
-// ===== Express Web Server for Heroku/Render =====
-const app = express()
-const PORT = process.env.PORT || 3000
-app.get('/', (_, res) => {
-  res.send(`TREND-XMD is live ✅`)
-})
-app.listen(PORT, () => {
-  console.log(chalk.cyanBright(`[🌐] Web server running on port ${PORT}`))
-})
-
-// ===== Connect to WhatsApp =====
 async function startBot() {
-  await downloadSessionFromMega()
-
   const { state, saveCreds } = await useMultiFileAuthState(SESSION_FOLDER)
-
-  const socket = makeWASocket({
-    version: await fetchLatestBaileysVersion(),
+  const sock = makeWASocket({
     logger: pino({ level: 'silent' }),
     printQRInTerminal: true,
-    auth: {
-      creds: state.creds,
-      keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' }))
-    },
-    markOnlineOnConnect: true,
-    generateHighQualityLinkPreview: true
+    auth: state
   })
 
-  socket.ev.on('connection.update', (update) => {
-    const { connection, lastDisconnect } = update
+  sock.ev.on('creds.update', saveCreds)
+  sock.ev.on('connection.update', async ({ connection, lastDisconnect }) => {
     if (connection === 'close') {
-      const shouldReconnect = (lastDisconnect?.error instanceof Boom) &&
-        lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut
-
-      console.log(chalk.red('🛑 Connection closed. Reconnecting...'), shouldReconnect)
-      if (shouldReconnect) startBot()
+      const reason = new Boom(lastDisconnect?.error)?.output?.statusCode
+      if (reason === DisconnectReason.loggedOut) {
+        console.log('🛑 Logged out. Restarting...')
+        process.exit()
+      } else startBot()
     } else if (connection === 'open') {
-      console.log(chalk.green('✅ TREND-XMD connected successfully!'))
+      console.log(`✅ ${BOT_NAME} connected as ${sock.user.id}`)
+      await backupSessionToMega()
     }
   })
 
-  socket.ev.on('creds.update', saveCreds)
-
-  // ===== Message Listener =====
-  socket.ev.on('messages.upsert', async ({ messages }) => {
+  // Message handler
+  sock.ev.on('messages.upsert', async ({ messages }) => {
     const msg = messages[0]
-    if (!msg.message) return
+    if (!msg.message || msg.key.fromMe) return
 
     const from = msg.key.remoteJid
-    const sender = msg.pushName || 'User'
-    const type = Object.keys(msg.message)[0]
-    const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || "").trim()
-
+    const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text || ''
     const isCmd = text.startsWith('!')
-    const cmd = isCmd ? text.split(' ')[0].slice(1).toLowerCase() : null
+    const cmd = isCmd ? text.slice(1).split(' ')[0].toLowerCase() : ''
+    const args = text.trim().split(/ +/).slice(1)
 
-    if (!isCmd) return
+    const reply = (txt) => sock.sendMessage(from, { text: txt }, { quoted: msg })
 
-    // ==== Basic Commands ====
-    if (cmd === 'ping') {
-      return socket.sendMessage(from, { text: '🏓 Pong!' })
-    }
-
-    if (cmd === 'owner') {
-      return socket.sendMessage(from, { text: '👑 Bot creator: Trendex' })
-    }
-
+    // Command: !menu
     if (cmd === 'menu') {
-      return socket.sendMessage(from, {
-        text: `💡 *TREND-XMD COMMANDS*\n\n!ping\n!owner\n!menu\n\n(more coming...)`
-      })
+      return reply(`
+╭───⭓ *${BOT_NAME} MENU*
+│
+│ 💬 !menu
+│ 🤖 !chatbot on/off
+│ 🔗 !antilink on/off
+│ 👋 !welcome on/off
+│ 🛡️ !antidelete on/off
+│ 🔥 !ping
+│ 📥 !ytmp3 <url>
+│ 📥 !tiktok <url>
+│ 😂 !joke | !quote | !meme
+│ 🎨 !sticker (reply img)
+│ 🧠 Creator: ${CREATOR}
+╰────────────⭓`)
     }
-      // 🚫 Antilink Enforcement
-const groupLinkPattern = /(https:\/\/chat\.whatsapp\.com\/[A-Za-z0-9]+)/i
-const isGroupLink = groupLinkPattern.test(text)
-const isBotAdmin = (await socket.groupMetadata(from)).participants
-  .find(p => p.id === socket.user.id)?.admin === 'admin'
 
-if (isGroup && antilinkDB[from] && isGroupLink && !isAdmin && isBotAdmin) {
-  try {
-    await socket.sendMessage(from, {
-      text: `🚫 @${sender.split('@')[0]} posted a WhatsApp group link and was removed.`,
-      mentions: [sender]
-    })
-    await socket.groupParticipantsUpdate(from, [sender], 'remove')
-  } catch (err) {
-    console.log('❌ Antilink remove failed:', err.message)
-  }
-}
+    // Command: !ping
+    if (cmd === 'ping') return reply('🏓 Pong! Bot is alive.')
 
-    // More commands will be added here...
-      // Simple chatbot toggle per user
-const chatbotDB = {}
+    // Command: !chatbot
+    global.chatbotDB = global.chatbotDB || {}
+    if (cmd === 'chatbot') {
+      if (!args[0]) return reply('Usage: !chatbot on / off')
+      global.chatbotDB[from] = args[0] === 'on'
+      return reply(`Chatbot ${args[0] === 'on' ? 'enabled' : 'disabled'} for this chat.`)
+    }
 
-if (cmd === 'chatbot') {
-  const arg = text.split(' ')[1]
-  if (!arg) return socket.sendMessage(from, { text: 'Use: !chatbot on / off' })
+    // Chatbot auto-reply
+    if (!isCmd && global.chatbotDB[from]) {
+      return reply(`🤖 ${BOT_NAME} here! You said: *${text}*`)
+    }
 
-  if (arg === 'on') {
-    chatbotDB[from] = true
-    return socket.sendMessage(from, { text: '🤖 Chatbot enabled for you!' })
-  } else if (arg === 'off') {
-    chatbotDB[from] = false
-    return socket.sendMessage(from, { text: '❌ Chatbot disabled for you.' })
-  } else {
-    return socket.sendMessage(from, { text: 'Invalid option. Use: !chatbot on / off' })
-  }
-}
+    // Command: !antilink
+    global.antilinkDB = global.antilinkDB || {}
+    if (cmd === 'antilink') {
+      if (!args[0]) return reply('Usage: !antilink on / off')
+      global.antilinkDB[from] = args[0] === 'on'
+      return reply(`Antilink ${args[0] === 'on' ? 'enabled' : 'disabled'} in this group.`)
+    }
 
-// Auto-reply if chatbot enabled
-if (!isCmd && chatbotDB[from]) {
-  return socket.sendMessage(from, {
-    text: `🤖 I am chatbot TREND-XMD. You said: *${text}*`
-  })
-                  }
-      const { downloadContentFromMessage } = require('@whiskeysockets/baileys')
-const { writeFileSync } = require('fs')
-const path = require('path')
-const { spawn } = require('child_process')
-const tmp = require('os').tmpdir()
+    // Auto remove links
+    if (!msg.key.fromMe && global.antilinkDB[from] && /(https?:\/\/[^\s]+)/.test(text)) {
+      const isAdmin = msg.key.participant?.includes(sock.user.id)
+      if (!isAdmin) return
+      await sock.groupParticipantsUpdate(from, [msg.key.participant], 'remove')
+    }
 
-if (cmd === 'sticker') {
-  const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage
-  if (!quoted || !quoted.imageMessage) {
-    return socket.sendMessage(from, { text: '🖼️ Reply to an image with !sticker' })
-  }
-
-  const stream = await downloadContentFromMessage(quoted.imageMessage, 'image')
-  const buffer = []
-  for await (const chunk of stream) buffer.push(chunk)
-
-  const imgPath = path.join(tmp, `img_${Date.now()}.jpg`)
-  const outPath = path.join(tmp, `sticker_${Date.now()}.webp`)
-  writeFileSync(imgPath, Buffer.concat(buffer))
-
-  // Convert using ffmpeg (make sure ffmpeg is installed)
-  spawn('ffmpeg', ['-i', imgPath, '-vf', 'scale=512:512:force_original_aspect_ratio=decrease', outPath])
-    .on('exit', () => {
-      socket.sendMessage(from, {
-        sticker: { url: outPath }
+    // Command: !ytmp3
+    if (cmd === 'ytmp3') {
+      if (!args[0]) return reply('📥 Usage: !ytmp3 <YouTube URL>')
+      return sock.sendMessage(from, {
+        document: { url: `https://api.vevioz.com/download/mp3?url=${args[0]}` },
+        mimetype: 'audio/mpeg',
+        fileName: 'yt-audio.mp3'
       }, { quoted: msg })
-    })
-          }
-      if (cmd === 'ytmp3') {
-  const url = text.split(' ')[1]
-  if (!url || !url.includes('youtube.com') && !url.includes('youtu.be')) {
-    return socket.sendMessage(from, { text: '📥 Use: !ytmp3 <youtube url>' })
-  }
+    }
 
-  const api = `https://api.vevioz.com/api/button/mp3/${url}`
-  socket.sendMessage(from, { text: `🔎 Fetching audio for:\n${url}` })
+    // Command: !tiktok
+    if (cmd === 'tiktok') {
+      if (!args[0]) return reply('📥 Usage: !tiktok <TikTok URL>')
+      const { data } = await require('axios').get(`https://api.tiklydown.me/api/download?url=${args[0]}`)
+      return sock.sendMessage(from, {
+        video: { url: data.video.noWatermark },
+        caption: `🎥 Downloaded via ${BOT_NAME}`
+      }, { quoted: msg })
+    }
 
-  socket.sendMessage(from, {
-    document: {
-      url: `https://api.vevioz.com/download/mp3?url=${encodeURIComponent(url)}`
-    },
-    mimetype: 'audio/mpeg',
-    fileName: 'yt-audio.mp3'
+    // Fun commands
+    if (cmd === 'joke') {
+      const { data } = await require('axios').get('https://official-joke-api.appspot.com/jokes/random')
+      return reply(`😂 ${data.setup}\n👉 ${data.punchline}`)
+    }
+
+    if (cmd === 'quote') {
+      const { data } = await require('axios').get('https://api.quotable.io/random')
+      return reply(`💬 "${data.content}"\n— ${data.author}`)
+    }
+
+    if (cmd === 'meme') {
+      const { data } = await require('axios').get('https://meme-api.com/gimme')
+      return sock.sendMessage(from, {
+        image: { url: data.url },
+        caption: `🤣 ${data.title}`
+      }, { quoted: msg })
+    }
+
+    // Sticker maker
+    if (cmd === 'sticker') {
+      const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage
+      if (!quoted?.imageMessage) return reply('🖼️ Reply to an image with !sticker')
+
+      const stream = await downloadContentFromMessage(quoted.imageMessage, 'image')
+      const buffer = []
+      for await (const chunk of stream) buffer.push(chunk)
+
+      const imgPath = path.join(os.tmpdir(), `${Date.now()}.jpg`)
+      const webpPath = path.join(os.tmpdir(), `${Date.now()}.webp`)
+      fs.writeFileSync(imgPath, Buffer.concat(buffer))
+
+      execSync(`ffmpeg -i ${imgPath} -vf "scale=512:512:force_original_aspect_ratio=decrease" -vcodec libwebp -lossless 1 -compression_level 6 -q:v 80 -preset default -loop 0 -an -vsync 0 ${webpPath}`)
+
+      await sock.sendMessage(from, { sticker: fs.readFileSync(webpPath) }, { quoted: msg })
+
+      fs.unlinkSync(imgPath)
+      fs.unlinkSync(webpPath)
+    }
   })
-      }
-      if (cmd === 'tiktok') {
-  const url = text.split(' ')[1]
-  if (!url || !url.includes('tiktok.com')) {
-    return socket.sendMessage(from, { text: '📥 Use: !tiktok <video url>' })
-  }
-
-  const api = `https://api.tiklydown.me/api/download?url=${url}`
-  try {
-    const { data } = await require('axios').get(api)
-    if (!data.video.noWatermark) throw 'No video found'
-
-    socket.sendMessage(from, {
-      video: { url: data.video.noWatermark },
-      caption: `🎥 TikTok Downloaded\nBy TREND-XMD`
-    })
-  } catch (err) {
-    socket.sendMessage(from, { text: '❌ Failed to fetch TikTok video.' })
-  }
-      }
-      if (cmd === 'joke') {
-  const { data } = await require('axios').get('https://official-joke-api.appspot.com/jokes/random')
-  socket.sendMessage(from, { text: `😂 ${data.setup}\n\n👉 ${data.punchline}` })
 }
 
-if (cmd === 'quote') {
-  const { data } = await require('axios').get('https://api.quotable.io/random')
-  socket.sendMessage(from, { text: `💬 "${data.content}"\n— ${data.author}` })
-}
-
-if (cmd === 'meme') {
-  const { data } = await require('axios').get('https://meme-api.com/gimme')
-  socket.sendMessage(from, { image: { url: data.url }, caption: `🤣 ${data.title}` })
-}
-
-if (cmd === 'fact') {
-  const { data } = await require('axios').get('https://uselessfacts.jsph.pl/random.json?language=en')
-  socket.sendMessage(from, { text: `🤓 Fact: ${data.text}` })
-}
-      // Auto block on call
-socket.ev.on('call', async (callData) => {
-  const caller = callData[0]?.from
-  console.log('📞 Blocked call from:', caller)
-  await socket.sendMessage(caller, { text: '🚫 Calls not allowed! You are being blocked.' })
-  await socket.updateBlockStatus(caller, 'block')
-})
-      socket.ev.on('messages.delete', async ({ keys }) => {
-  for (const key of keys) {
-    if (!key.remoteJid || key.fromMe) continue
-
-    const msg = await socket.loadMessage(key.remoteJid, key.id)
-    if (!msg?.message) return
-
-    const sender = key.participant || key.remoteJid
-    const name = msg.pushName || sender.split('@')[0]
-
-    let type = Object.keys(msg.message)[0]
-    let content
-
-    if (type === 'conversation') {
-      content = msg.message.conversation
-    } else if (type === 'extendedTextMessage') {
-      content = msg.message.extendedTextMessage.text
-    } else {
-      content = `[${type} message deleted]`
-    }
-
-    socket.sendMessage(key.remoteJid, {
-      text: `🗑️ *Anti-Delete*\n👤 ${name} deleted:\n\n${content}`
-    })
-  }
-})
-      // 🛡️ Anti-Delete Feature
-socket.ev.on('messages.delete', async ({ keys }) => {
-  for (const key of keys) {
-    if (!key.remoteJid || key.fromMe) continue
-
-    try {
-      const msg = await socket.loadMessage(key.remoteJid, key.id)
-      if (!msg?.message) return
-
-      const sender = key.participant || key.remoteJid
-      const name = msg.pushName || sender.split('@')[0]
-      const type = Object.keys(msg.message)[0]
-      let content
-
-      if (type === 'conversation') {
-        content = msg.message.conversation
-      } else if (type === 'extendedTextMessage') {
-        content = msg.message.extendedTextMessage.text
-      } else {
-        content = `[${type} message deleted]`
-      }
-
-      await socket.sendMessage(key.remoteJid, {
-        text: `🗑️ *Anti-Delete*\n👤 ${name} deleted:\n\n${content}`
-      })
-    } catch (err) {
-      console.log('❌ Anti-Delete error:', err.message)
-    }
-  }
-})
-      // 👋 Welcome & Bye Messages
-socket.ev.on('group-participants.update', async (event) => {
-  const { id, participants, action } = event
-  for (const user of participants) {
-    try {
-      const pp = await socket.profilePictureUrl(user, 'image')
-        .catch(() => 'https://i.ibb.co/S32HNjD/no-profile.jpg')
-      const name = (await socket.onWhatsApp(user))[0]?.notify || user.split('@')[0]
-
-      if (action === 'add') {
-        await socket.sendMessage(id, {
-          image: { url: pp },
-          caption: `👋 *Welcome @${user.split('@')[0]}!*\n\nGlad to have you in *${id.split('@')[0]}* 😊`,
-          mentions: [user]
-        })
-      }
-
-      if (action === 'remove') {
-        await socket.sendMessage(id, {
-          image: { url: pp },
-          caption: `👋 *Goodbye @${user.split('@')[0]}.*\n\nHope to see you again someday! 👋`,
-          mentions: [user]
-        })
-      }
-
-    } catch (e) {
-      console.log('❌ Welcome/Bye error:', e.message)
-    }
-  }
-})
-      // 👁️ Anti View Once
-if (msg.message?.viewOnceMessageV2) {
-  const vmsg = msg.message.viewOnceMessageV2.message
-  const type = Object.keys(vmsg)[0]
-
-  try {
-    const mediaMessage = vmsg[type]
-    const stream = await downloadContentFromMessage(mediaMessage, type.includes('image') ? 'image' : 'video')
-    const buffer = []
-    for await (const chunk of stream) buffer.push(chunk)
-
-    const mediaBuffer = Buffer.concat(buffer)
-    const caption = `👁️ Anti-ViewOnce from @${msg.key.participant?.split('@')[0] || msg.key.remoteJid.split('@')[0]}`
-
-    await socket.sendMessage(from, {
-      [type]: mediaBuffer,
-      caption,
-      mentions: [msg.key.participant || msg.key.remoteJid]
-    }, { quoted: msg })
-  } catch (err) {
-    console.log('❌ Anti-ViewOnce error:', err.message)
-  }
-          }
-      // 🔗 Antilink Toggle Command
-const antilinkDB = antilinkDB || {}
-
-if (cmd === 'antilink') {
-  const arg = text.split(' ')[1]
-  if (!isGroup) return socket.sendMessage(from, { text: '❌ This command is for groups only.' })
-  if (!isAdmin) return socket.sendMessage(from, { text: '⚠️ Only group admins can toggle antilink.' })
-
-  if (!arg || !['on', 'off'].includes(arg)) {
-    return socket.sendMessage(from, { text: 'Use: !antilink on / off' })
-  }
-
-  antilinkDB[from] = arg === 'on'
-  socket.sendMessage(from, {
-    text: `🔗 Antilink has been turned *${arg.toUpperCase()}* for this group.`
-  })
-      if (cmd === 'menu') {
-  const menuText = `
-┏━━━〔 *🤖 TREND-XMD MENU* 〕━━━┓
-
-*🧩 MAIN COMMANDS*
-➤ !menu
-➤ !ping
-➤ !chatbot on/off
-➤ !status
-
-*🎭 FUN MENU*
-➤ !joke
-➤ !quote
-➤ !meme
-➤ !fact
-
-*🎬 MEDIA TOOLS*
-➤ !sticker (reply to image)
-➤ !toimg (sticker to image)
-
-*📥 DOWNLOADERS*
-➤ !ytmp3 <link>
-➤ !tiktok <link>
-
-*🛡️ GROUP PROTECTION*
-➤ !antilink on/off
-➤ !antidelete on/off
-➤ !antiviewonce
-
-*👮 ADMIN TOOLS*
-➤ !kick @user
-➤ !promote @user
-➤ !demote @user
-➤ !welcome on/off (optional)
-
-*👑 OWNER COMMANDS*
-➤ !bc <text>
-➤ !eval <code>
-➤ !shutdown
-
-📌 *Bot Name:* TREND-XMD
-🧠 *Creator:* @trendex
-  `.trim()
-
-  socket.sendMessage(from, {
-    text: menuText,
-    mentions: [msg.key.participant || sender]
-  }, { quoted: msg })
-      }
+startBot()
