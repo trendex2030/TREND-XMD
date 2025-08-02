@@ -1,37 +1,39 @@
 {
-  "name": "TrendX",
-  "description": "TrendX, your friendly assistant!",
-  "logo": "https://files.catbox.moe/adymbp.jpg",
-  "keywords": [],
-  "repository": "https://github.com/trendex2030/Baileys",
-  "stack": "container",
-  "addons": [
-    {
-      "plan": "heroku-postgresql"
-    }
+  "name": "TREND-XMD",
+  "description": "🤖 TREND-XMD - A powerful multi-feature WhatsApp bot built with Baileys by TRENDEX.",
+  "repository": "https://github.com/trendex2030/TREND-XMD",
+  "logo": "https://i.imgur.com/1YcCcMJ.png",
+  "keywords": [
+    "WhatsApp",
+    "Baileys",
+    "Bot",
+    "Node.js",
+    "Heroku",
+    "MEGA",
+    "TREND-X"
   ],
-  "scripts": {
-    "start": "node index.js"
+  "env": {
+    "PORT": {
+      "description": "Port to bind Express server (Heroku auto-assigns)",
+      "required": false
+    }
   },
-"env": {
-  "SESSION_ID": {
-    "description": "Must begin with 'trend-xmd:~' or 'trend-x:~'.",
-    "value": "",
-    "required": false
-  }
-},
   "buildpacks": [
     {
       "url": "heroku/nodejs"
-    },
-    {
-      "url": "https://github.com/DuckyTeam/heroku-buildpack-imagemagick.git"
-    },
-    {
-      "url": "https://github.com/jonathanong/heroku-buildpack-ffmpeg-latest"
-    },
-    {
-      "url": "https://github.com/clhuang/heroku-buildpack-webp-binaries.git"
     }
-  ]
+  ],
+  "scripts": {
+    "postdeploy": "echo '🚀 TREND-XMD bot deployed successfully on Heroku.'"
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "free"
+    }
+  },
+  "stack": "heroku-22",
+  "addons": [],
+  "success_url": "/",
+  "website": "https://github.com/trendex2030/TREND-XMD"
 }
