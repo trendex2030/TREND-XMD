@@ -1,18 +1,25 @@
-# Use official Node.js base image
-FROM node:18
+FROM node:lts
 
-# Create app directory
-WORKDIR /usr/src/app
+# Install dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg imagemagick webp && apt-get clean
 
-# Install app dependencies
+# Set working directory
+WORKDIR /app
+
+# Copy package files
 COPY package*.json ./
-RUN npm install
 
-# Bundle app source
+# Install dependencies
+RUN npm install && npm cache clean --force
+
+# Copy application code
 COPY . .
 
-# Expose a port for Heroku/Render
+# Expose port
 EXPOSE 3000
 
-# Start the bot
-CMD [ "npm", "start" ]
+# Set environment
+ENV NODE_ENV production
+
+# Run command
+CMD ["npm", "run", "start"]
