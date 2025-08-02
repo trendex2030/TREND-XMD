@@ -15,7 +15,7 @@
   },
 "env": {
   "SESSION_ID": {
-    "description": "Must begin with 'TREND-XMD:~' or 'TREND-X:~'.",
+    "description": "Must begin with 'trend-xmd:~' or 'trend-x:~'.",
     "value": "",
     "required": false
   }
