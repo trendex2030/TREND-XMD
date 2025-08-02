@@ -12,9 +12,9 @@
     "dev": "nodemon index.js", 
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "Tylor",
+  "author": "Trendex",
   "dependencies": {
-        "@whiskeysockets/baileys": "https://github.com/Dark-Xploit/Baileys/archive/refs/tags/v2.0.5.tar.gz",
+        "@whiskeysockets/baileys": "https://github.com/trendex2030/Baileys/archive/refs/tags/v2.0.5.tar.gz",
         "@rodrigogs/baileys-store" : "^1.0.1",
         "adm-zip": "^0.5.16",
         "better-sqlite3": "^11.10.0",
