@@ -3,7 +3,7 @@
   "description": "TrendX, your friendly assistant!",
   "logo": "https://files.catbox.moe/adymbp.jpg",
   "keywords": [],
-  "repository": "https://github.com/Dark-Xploit/trendex2030",
+  "repository": "https://github.com/trendex2030/Baileys",
   "stack": "container",
   "addons": [
     {
