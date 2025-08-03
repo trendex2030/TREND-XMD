@@ -1,109 +1,107 @@
-
+{
   "name": "TREND-X V2",
   "description": "I am TREND-X WhatsApp MultiDevice Bot built in NodeJs to enhance the experience.",
   "logo": "https://files.catbox.moe/adymbp.jpg",
-  "keywords": ["TREND-X V2"],
+  "keywords": ["WhatsApp", "Bot", "TREND-X", "Node.js", "MultiDevice", "Baileys"],
   "repository": "https://github.com/trendex2030/TREND-X",
   "stack": "container",
-  "env": { 
-      "SESSION_ID": {
-      "description": "your session id",
-      "required": true,
-      "value": ""
+  "env": {
+    "SESSION_ID": {
+      "description": "Your session ID (starts with trend-x~...) from MEGA",
+      "required": true
     },
     "MODE": {
-      "description": "mode public or self",
+      "description": "Bot mode: public or self",
       "required": true,
       "value": "public"
     },
     "BOT_NAME": {
-      "description": "change bot name what you want!",
+      "description": "Customize your bot's name",
       "required": false,
       "value": "TREND-X"
     },
     "MENU_IMAGE": {
-      "description": "change menu image if want otherwise use default",
+      "description": "URL of custom menu image (optional)",
       "required": false,
       "value": "https://files.catbox.moe/adymbp.jpg"
     },
     "DESCRIPTION": {
-      "description": "add caption for menu and etc",
+      "description": "Bot caption and branding text",
       "required": false,
       "value": "© ᴘᴏᴡᴇʀᴇᴅ ʙʏ TRENDEX"
     },
     "ANTI_DELETE": {
-      "description": "set path for antidelete for same chat set to same",
+      "description": "Anti-delete target path (e.g., inbox, group)",
       "required": true,
       "value": "inbox"
     },
     "ANTI_DELETE_PATH": {
-      "description": "make it true for use anti delete",
+      "description": "Enable anti-delete feature (true/false)",
       "required": true,
       "value": "true"
     },
-    
     "AUTO_STATUS_SEEN": {
-      "description": "make it true if you want bot to view status",
+      "description": "Auto view WhatsApp status updates",
       "required": false,
       "value": "true"
     },
     "AUTO_STATUS_REPLY": {
-      "description": "make it true if you want to send message after seen status",
+      "description": "Auto reply after viewing a status",
       "required": false,
       "value": "false"
     },
     "STATUS_READ_MSG": {
-      "description": "set your status reply message",
+      "description": "Message sent after viewing status",
       "required": false,
       "value": "*Status Seen By TREND-X 👻🤍*"
     },
     "OWNER_NAME": {
-      "description": "set owner name",
+      "description": "Owner's name",
       "required": false,
       "value": "TRENDEX"
     },
     "OWNER_NUMBER": {
-      "description": "set your owner number",
+      "description": "Owner's WhatsApp number (in international format)",
       "required": false,
       "value": "+254734939236"
     },
     "AUTO_READ": {
-      "description": "make it true if you want bot to read message",
+      "description": "Auto read messages",
       "required": false,
       "value": "false"
     },
     "AUTO_TYPING": {
-      "description": "make it true if you want bot to show typing",
+      "description": "Show typing indicator automatically",
       "required": false,
       "value": "false"
     },
     "AUTO_RECORDING": {
-      "description": "make it true if you want bot to show recording audio",
+      "description": "Show audio recording status automatically",
       "required": false,
       "value": "false"
     },
     "ALWAYS_ONLINE": {
-      "description": "make it true if you want bot to show always online",
+      "description": "Keep bot always online",
       "required": false,
       "value": "false"
     },
     "AUTO_BLOCK": {
-      "description": "make it true if you want bot to auto block only 212 numbers",
+      "description": "Auto block +212 spam numbers",
       "required": false,
       "value": "false"
     },
     "REJECT_CALL": {
-      "description": "make it true if you want to reject call",
+      "description": "Reject incoming WhatsApp calls",
       "required": false,
       "value": "false"
     },
     "PREFIX": {
-      "description": "Your Bot Prefix default (.)",
+      "description": "Command prefix used to trigger bot",
       "required": false,
       "value": "."
     }
-    },
-    "buildpacks": [
+  },
+  "buildpacks": [
     {
       "url": "heroku/nodejs"
     },
@@ -118,4 +116,3 @@
     }
   ]
 }
-
