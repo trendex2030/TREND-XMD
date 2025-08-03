@@ -49,6 +49,7 @@ if (!fs.existsSync(sessionDir)) {
 }
 
 async function downloadSessionData() {
+async function downloadSessionData() {
     console.log("Debugging SESSION_ID:", config.SESSION_ID);
 
     if (!config.SESSION_ID) {
@@ -58,29 +59,26 @@ async function downloadSessionData() {
 
     const sessdata = config.SESSION_ID.split("trend-x~")[1];
 
-    if (!sessdata || !sessdata.includes("#")) {
-        console.error('❌ Invalid SESSION_ID format! It must contain both file ID and decryption key.');
+    if (!sessdata) {
+        console.error('❌ Invalid SESSION_ID format! Must start with trend-x~');
         return false;
     }
 
-    const [fileID, decryptKey] = sessdata.split("#");
-
+    // If base64 session, decode and write to session directory
     try {
-        console.log("🔄 Downloading Session...");
-        const file = File.fromURL(`https://mega.nz/file/${fileID}#${decryptKey}`);
+        console.log("🔄 Decoding base64 session...");
+        const decoded = Buffer.from(sessdata, 'base64');
+        const fs = require('fs');
+        const path = require('path');
 
-        const data = await new Promise((resolve, reject) => {
-            file.download((err, data) => {
-                if (err) reject(err);
-                else resolve(data);
-            });
-        });
+        const sessionPath = path.join(__dirname, 'sessions', 'auth_info_multi.json');
+        fs.mkdirSync(path.dirname(sessionPath), { recursive: true });
+        fs.writeFileSync(sessionPath, decoded);
 
-        await fs.promises.writeFile(credsPath, data);
-        console.log("🔒 Session Successfully Loaded !!");
+        console.log("✅ Session restored from base64.");
         return true;
-    } catch (error) {
-        console.error('❌ Failed to download session data:', error);
+    } catch (e) {
+        console.error('❌ Failed to decode session from base64:', e);
         return false;
     }
 }
@@ -89,7 +87,7 @@ async function start() {
     try {
         const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
         const { version, isLatest } = await fetchLatestBaileysVersion();
-        console.log(`🤖 JAWAD-MD using WA v${version.join('.')}, isLatest: ${isLatest}`);
+        console.log(`🤖 TREND-X using WA v${version.join('.')}, isLatest: ${isLatest}`);
         
         const Matrix = makeWASocket({
             version,
