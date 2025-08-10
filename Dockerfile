@@ -1,22 +1,10 @@
-FROM node:20-bullseye
-
-# Install required packages
-RUN apt-get update && \
-    apt-get install -y \
-        ffmpeg \
-        imagemagick \
-        webp && \
-    rm -rf /var/lib/apt/lists/*
+FROM node:lts
 
 WORKDIR /app
-
-COPY package.json .
-
-# Install dependencies
-RUN npm install && npm install -g qrcode-terminal pm2
-
 COPY . .
+
+RUN npm install
 
 EXPOSE 3000
 
-CMD ["npm", "start"]
+CMD ["node", "index.js"]
