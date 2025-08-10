@@ -1,37 +1,50 @@
-import fs from 'fs';
-import config from '../config.cjs';
+const { cmd } = require('../command');
+const os = require("os");
+const { runtime } = require('../lib/functions');
+const config = require('../config');
 
-const alive = async (m, Matrix) => {
-  const uptimeSeconds = process.uptime();
-  const days = Math.floor(uptimeSeconds / (3600 * 24));
-  const hours = Math.floor((uptimeSeconds % (3600 * 24)) / 3600);
-  const minutes = Math.floor((uptimeSeconds % 3600) / 60);
-  const seconds = Math.floor(uptimeSeconds % 60);
-  const timeString = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+cmd({
+    pattern: "alive",
+    alias: ["status", "online", "a"],
+    desc: "Check bot is alive or not",
+    category: "main",
+    react: "⚡",
+    filename: __filename
+},
+async (conn, mek, m, { from, sender, reply }) => {
+    try {
+        const status = `
+╭───〔 *${config.BOT_NAME}* 〕───◉
+│✨ *Bot is Active & Online!*
+│
+│♦️ *Owner:* ${config.OWNER_NAME}
+│♦️ *Version:* 5.0.0 max
+│♦️ *Prefix:* [${config.PREFIX}]
+│♦️ *Mode:* [${config.MODE}]
+│♦️ *RAM:* ${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)}MB / ${(os.totalmem() / 1024 / 1024).toFixed(2)}MB
+│♦️ *Host:* ${os.hostname()}
+│♦️ *Uptime:* ${runtime(process.uptime())}
+╰────────────────────◉
+> ${config.DESCRIPTION}`;
 
-  const prefix = config.PREFIX;
-  const cmd = m.body.startsWith(prefix) ? m.body.slice(prefix.length).split(' ')[0].toLowerCase() : '';
+        await conn.sendMessage(from, {
+            image: { url: config.MENU_IMAGE_URL },
+            caption: status,
+            contextInfo: {
+                mentionedJid: [m.sender],
+                forwardingScore: 1000,
+                isForwarded: true,
+                forwardedNewsletterMessageInfo: {
+                    newsletterJid: '120363401765045963@newsletter',
+                    newsletterName: 'TREND-X',
+                    serverMessageId: 143
+                }
+            }
+        }, { quoted: mek });
 
-  if (!['alive', 'uptime', 'runtime'].includes(cmd)) return;
-
-  const str = `*🤖 Bot Status: Online*\n*⏳ Uptime: ${timeString}*`;
-
-  await Matrix.sendMessage(m.from, {
-    image: fs.readFileSync('./media/khan.jpg'),
-    caption: str,
-    contextInfo: {
-      mentionedJid: [m.sender],
-      forwardingScore: 999,
-      isForwarded: true,
-      forwardedNewsletterMessageInfo: {
-        newsletterJid: '120363401765045963@newsletter',
-        newsletterName: "TREND-X",
-        serverMessageId: 143
-      }
+    } catch (e) {
+        console.error("Alive Error:", e);
+        reply(`An error occurred: ${e.message}`);
     }
-  }, {
-    quoted: m
-  });
-};
+});
 
-export default alive;

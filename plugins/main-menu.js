@@ -1,246 +1,376 @@
-import moment from 'moment-timezone';
-import fs from 'fs';
-import os from 'os';
-import pkg from '@whiskeysockets/baileys';
-const { generateWAMessageFromContent, proto } = pkg;
-import config from '../config.cjs';
-import axios from 'axios';
+const config = require('../config')
+const { cmd, commands } = require('../command');
+const os = require("os")
+const {runtime} = require('../lib/functions')
+const axios = require('axios')
 
-// Get total memory and free memory in bytes
-const totalMemoryBytes = os.totalmem();
-const freeMemoryBytes = os.freemem();
+cmd({
+    pattern: "menu3",
+    alias: ["allmenu","fullmenu"],
+    use: '.menu2',
+    desc: "Show all bot commands",
+    category: "menu",
+    react: "📜",
+    filename: __filename
+}, 
+async (conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply }) => {
+    try {
+        let dec = `╭━━〔 🚀 *${config.BOT_NAME}* 〕━━┈⊷
+┃◈╭─────────────────·๏
+┃◈┃• ♦️ *Owner :* ${config.OWNER_NAME}
+┃◈┃• ♦️ *Prefix :* [${config.PREFIX}]
+┃◈┃• ♦️ *Platform :* vercel
+┃◈┃• ♦️ *Version :* 5.0.0 max
+┃◈┃• ♦️ *Runtime :* ${runtime(process.uptime())}
+┃◈╰─────────────────┈⊷
+╰━━━━━━━━━━━━━━━━━━━┈⊷
 
-// Define unit conversions
-const byteToKB = 1 / 1024;
-const byteToMB = byteToKB / 1024;
-const byteToGB = byteToMB / 1024;
+╭━━〔 📥 *DOWNLOAD MENU* 〕━━┈⊷
+┃◈╭─────────────────·๏
+┃◈┃• ♦️ facebook
+┃◈┃• ♦️ mediafire
+┃◈┃• ♦️ tiktok
+┃◈┃• ♦️ twitter
+┃◈┃• ♦️ insta
+┃◈┃• ♦️ apk
+┃◈┃• ♦️ img
+┃◈┃• ♦️ tt2
+┃◈┃• ♦️ pins
+┃◈┃• ♦️ apk2
+┃◈┃• ♦️ fb2
+┃◈┃• ♦️ pinterest
+┃◈┃• ♦️ spotify
+┃◈┃• ♦️ play
+┃◈┃• ♦️ play2
+┃◈┃• ♦️ audio
+┃◈┃• ♦️ video
+┃◈┃• ♦️ video2
+┃◈┃• ♦️ ytmp3
+┃◈┃• ♦️ ytmp4
+┃◈┃• ♦️ song
+┃◈┃• ♦️ darama
+┃◈┃• ♦️ gdrive
+┃◈┃• ♦️ ssweb
+┃◈┃• ♦️ tiks
+┃◈╰─────────────────┈⊷
+╰━━━━━━━━━━━━━━━━━━━┈⊷
 
-// Function to format bytes to a human-readable format
-function formatBytes(bytes) {
-  if (bytes >= Math.pow(1024, 3)) {
-    return (bytes * byteToGB).toFixed(2) + ' GB';
-  } else if (bytes >= Math.pow(1024, 2)) {
-    return (bytes * byteToMB).toFixed(2) + ' MB';
-  } else if (bytes >= 1024) {
-    return (bytes * byteToKB).toFixed(2) + ' KB';
-  } else {
-    return bytes.toFixed(2) + ' bytes';
-  }
-}
+╭━━〔 👥 *GROUP MENU* 〕━━┈⊷
+┃◈╭─────────────────·๏
+┃◈┃• ♦️ grouplink
+┃◈┃• ♦️ kickall
+┃◈┃• ♦️ kickall2
+┃◈┃• ♦️ kickall3
+┃◈┃• ♦️ add
+┃◈┃• ♦️ remove
+┃◈┃• ♦️ kick
+┃◈┃• ♦️ promote
+┃◈┃• ♦️ demote
+┃◈┃• ♦️ dismiss
+┃◈┃• ♦️ revoke
+┃◈┃• ♦️ setgoodbye
+┃◈┃• ♦️ setwelcome
+┃◈┃• ♦️ delete
+┃◈┃• ♦️ getpic
+┃◈┃• ♦️ ginfo
+┃◈┃• ♦️ disappear on
+┃◈┃• ♦️ disappear off
+┃◈┃• ♦️ disappear 7D,24H
+┃◈┃• ♦️ allreq
+┃◈┃• ♦️ updategname
+┃◈┃• ♦️ updategdesc
+┃◈┃• ♦️ joinrequests
+┃◈┃• ♦️ senddm
+┃◈┃• ♦️ nikal
+┃◈┃• ♦️ mute
+┃◈┃• ♦️ unmute
+┃◈┃• ♦️ lockgc
+┃◈┃• ♦️ unlockgc
+┃◈┃• ♦️ invite
+┃◈┃• ♦️ tag
+┃◈┃• ♦️ hidetag
+┃◈┃• ♦️ tagall
+┃◈┃• ♦️ tagadmins
+┃◈╰─────────────────┈⊷
+╰━━━━━━━━━━━━━━━━━━━┈⊷
 
-// Bot Process Time
-const uptime = process.uptime();
-const day = Math.floor(uptime / (24 * 3600)); // Calculate days
-const hours = Math.floor((uptime % (24 * 3600)) / 3600); // Calculate hours
-const minutes = Math.floor((uptime % 3600) / 60); // Calculate minutes
-const seconds = Math.floor(uptime % 60); // Calculate seconds
+╭━━〔 🎭 *REACTIONS MENU* 〕━━┈⊷
+┃◈╭─────────────────·๏
+┃◈┃• ♦️ bully @tag
+┃◈┃• ♦️ cuddle @tag
+┃◈┃• ♦️ cry @tag
+┃◈┃• ♦️ hug @tag
+┃◈┃• ♦️ awoo @tag
+┃◈┃• ♦️ kiss @tag
+┃◈┃• ♦️ lick @tag
+┃◈┃• ♦️ pat @tag
+┃◈┃• ♦️ smug @tag
+┃◈┃• ♦️ bonk @tag
+┃◈┃• ♦️ yeet @tag
+┃◈┃• ♦️ blush @tag
+┃◈┃• ♦️ smile @tag
+┃◈┃• ♦️ wave @tag
+┃◈┃• ♦️ highfive @tag
+┃◈┃• ♦️ handhold @tag
+┃◈┃• ♦️ nom @tag
+┃◈┃• ♦️ bite @tag
+┃◈┃• ♦️ glomp @tag
+┃◈┃• ♦️ slap @tag
+┃◈┃• ♦️ kill @tag
+┃◈┃• ♦️ happy @tag
+┃◈┃• ♦️ wink @tag
+┃◈┃• ♦️ poke @tag
+┃◈┃• ♦️ dance @tag
+┃◈┃• ♦️ cringe @tag
+┃◈╰─────────────────┈⊷
+╰━━━━━━━━━━━━━━━━━━━┈⊷
 
-// Uptime
-const uptimeMessage = `*I am alive now since ${day}d ${hours}h ${minutes}m ${seconds}s*`;
-const runMessage = `*☀️ ${day} Day*\n*🕐 ${hours} Hour*\n*⏰ ${minutes} Minutes*\n*⏱️ ${seconds} Seconds*\n`;
+╭━━〔 🎨 *LOGO MAKER* 〕━━┈⊷
+┃◈╭─────────────────·๏
+┃◈┃• ♦️ neonlight
+┃◈┃• ♦️ blackpink
+┃◈┃• ♦️ dragonball
+┃◈┃• ♦️ 3dcomic
+┃◈┃• ♦️ america
+┃◈┃• ♦️ naruto
+┃◈┃• ♦️ sadgirl
+┃◈┃• ♦️ clouds
+┃◈┃• ♦️ futuristic
+┃◈┃• ♦️ 3dpaper
+┃◈┃• ♦️ eraser
+┃◈┃• ♦️ sunset
+┃◈┃• ♦️ leaf
+┃◈┃• ♦️ galaxy
+┃◈┃• ♦️ sans
+┃◈┃• ♦️ boom
+┃◈┃• ♦️ hacker
+┃◈┃• ♦️ devilwings
+┃◈┃• ♦️ nigeria
+┃◈┃• ♦️ bulb
+┃◈┃• ♦️ angelwings
+┃◈┃• ♦️ zodiac
+┃◈┃• ♦️ luxury
+┃◈┃• ♦️ paint
+┃◈┃• ♦️ frozen
+┃◈┃• ♦️ castle
+┃◈┃• ♦️ tatoo
+┃◈┃• ♦️ valorant
+┃◈┃• ♦️ bear
+┃◈┃• ♦️ typography
+┃◈┃• ♦️ birthday
+┃◈╰─────────────────┈⊷
+╰━━━━━━━━━━━━━━━━━━━┈⊷
 
-const xtime = moment.tz("Kenya/Nairobi").format("HH:mm:ss");
-const xdate = moment.tz("Kenya/Nairobi").format("DD/MM/YYYY");
-const time2 = moment().tz("Kenya/Nairobi").format("HH:mm:ss");
-let pushwish = "";
+╭━━〔 👑 *OWNER MENU* 〕━━┈⊷
+┃◈╭─────────────────·๏
+┃◈┃•  owner
+┃◈┃• ♦️ menu
+┃◈┃• ♦️ menu2
+┃◈┃• ♦️ vv
+┃◈┃• ♦️ listcmd
+┃◈┃• ♦️ allmenu
+┃◈┃• ♦️ repo
+┃◈┃• ♦️ block
+┃◈┃• ♦️ unblock
+┃◈┃• ♦️ fullpp
+┃◈┃• ♦️ setpp
+┃◈┃• ♦️ restart
+┃◈┃• ♦️ shutdown
+┃◈┃• ♦️ updatecmd
+┃◈┃• ♦️ alive
+┃◈┃• ♦️ ping
+┃◈┃• ♦️ gjid
+┃◈┃• ♦️ jid
+┃◈╰─────────────────┈⊷
+╰━━━━━━━━━━━━━━━━━━━┈⊷
 
-if (time2 < "05:00:00") {
-  pushwish = `Good Morning 🌄`;
-} else if (time2 < "11:00:00") {
-  pushwish = `Good Morning 🌄`;
-} else if (time2 < "15:00:00") {
-  pushwish = `Good Afternoon 🌅`;
-} else if (time2 < "18:00:00") {
-  pushwish = `Good Evening 🌃`;
-} else if (time2 < "19:00:00") {
-  pushwish = `Good Evening 🌃`;
-} else {
-  pushwish = `Good Night 🌌`;
-}
+╭━━〔 🎉 *FUN MENU* 〕━━┈⊷
+┃◈╭─────────────────·๏
+┃◈┃• ♦️ shapar
+┃◈┃• ♦️ rate
+┃◈┃• ♦️ insult
+┃◈┃• ♦️ hack
+┃◈┃• ♦️ ship
+┃◈┃• ♦️ character
+┃◈┃• ♦️ pickup
+┃◈┃• ♦️ joke
+┃◈┃• ♦️ hrt
+┃◈┃• ♦️ hpy
+┃◈┃• ♦️ syd
+┃◈┃• ♦️ anger
+┃◈┃• ♦️ shy
+┃◈┃• ♦️ kiss
+┃◈┃• ♦️ mon
+┃◈┃• ♦️ cunfuzed
+┃◈┃• ♦️ setpp
+┃◈┃• ♦️ hand
+┃◈┃• ♦️ nikal
+┃◈┃• ♦️ hold
+┃◈┃• ♦️ hug
+┃◈┃• ♦️ nikal
+┃◈┃• ♦️ hifi
+┃◈┃• ♦️ poke
+┃◈╰─────────────────┈⊷
+╰━━━━━━━━━━━━━━━━━━━┈⊷
 
-const menu = async (m, Matrix) => {
-  const prefix = config.PREFIX;
-  const cmd = m.body.startsWith(prefix) ? m.body.slice(prefix.length).split(' ')[0].toLowerCase() : '';
-  const mode = config.MODE === 'public' ? 'public' : 'private';
-  const pref = config.PREFIX;
+╭━━〔 🔄 *CONVERT MENU* 〕━━┈⊷
+┃◈╭─────────────────·๏
+┃◈┃• ♦️ sticker
+┃◈┃• ♦️ sticker2
+┃◈┃• ♦️ emojimix
+┃◈┃• ♦️ fancy
+┃◈┃• ♦️ take
+┃◈┃• ♦️ tomp3
+┃◈┃• ♦️ tts
+┃◈┃• ♦️ trt
+┃◈┃• ♦️ base64
+┃◈┃• ♦️ unbase64
+┃◈┃• ♦️ binary
+┃◈┃• ♦️ dbinary
+┃◈┃• ♦️ tinyurl
+┃◈┃• ♦️ urldecode
+┃◈┃• ♦️ urlencode
+┃◈┃• ♦️ url
+┃◈┃• ♦️ repeat
+┃◈┃• ♦️ ask
+┃◈┃• ♦️ readmore
+┃◈╰─────────────────┈⊷
+╰━━━━━━━━━━━━━━━━━━━┈⊷
 
-  const validCommands = ['fullmenu', 'menu2', 'diana'];
+╭━━〔 🤖 *AI MENU* 〕━━┈⊷
+┃◈╭─────────────────·๏
+┃◈┃• ♦️ ai
+┃◈┃• ♦️ gpt3
+┃◈┃• ♦️ gpt2
+┃◈┃• ♦️ gptmini
+┃◈┃• ♦️ gpt
+┃◈┃• ♦️ meta
+┃◈┃• ♦️ blackbox
+┃◈┃• ♦️ luma
+┃◈┃• ♦️ dj
+┃◈┃• ♦️ obed
+┃◈┃• ♦️ hunter
+┃◈┃• ♦️ gpt4
+┃◈┃• ♦️ bing
+┃◈┃• ♦️ imagine
+┃◈┃• ♦️ imagine2
+┃◈┃• ♦️ copilot
+┃◈╰─────────────────┈⊷
+╰━━━━━━━━━━━━━━━━━━━┈⊷
 
-  if (validCommands.includes(cmd)) {
-    const str = `
-╭━━━〔 *${config.BOT_NAME}* 〕━━━┈⊷
-┃★╭──────────────
-┃★│ Owner : *${config.OWNER_NAME}*
-┃★│ User : *${m.pushName}*
-┃★│ Baileys : *Multi Device*
-┃★│ Type : *NodeJs*
-┃★│ Mode : *${mode}*
-┃★│ Platform : *${os.platform()}*
-┃★│ Prefix : [${prefix}]
-┃★│ Version : *3.1.0*
-┃★╰──────────────
-╰━━━━━━━━━━━━━━━┈⊷
+╭━━〔 ⚡ *MAIN MENU* 〕━━┈⊷
+┃◈╭─────────────────·๏
+┃◈┃• ♦️ ping
+┃◈┃• ♦️ ping2
+┃◈┃• ♦️ speed
+┃◈┃• ♦️ live
+┃◈┃• ♦️ alive
+┃◈┃• ♦️ runtime
+┃◈┃• ♦️ uptime
+┃◈┃• ♦️ repo
+┃◈┃• ♦️ owner
+┃◈┃• ♦️ menu
+┃◈┃• ♦️ menu2
+┃◈┃• ♦️ restart
+┃◈╰─────────────────┈⊷
+╰━━━━━━━━━━━━━━━━━━━┈⊷
 
-> ${pushwish} *${m.pushName}*!
+╭━━〔 🎎 *ANIME MENU* 〕━━┈⊷
+┃◈╭─────────────────·๏
+┃◈┃•  fack
+┃◈┃• ♦️ truth
+┃◈┃• ♦️ dare
+┃◈┃• ♦️ dog
+┃◈┃• ♦️ awoo
+┃◈┃• ♦️ garl
+┃◈┃• ♦️ waifu
+┃◈┃• ♦️ neko
+┃◈┃• ♦️ megnumin
+┃◈┃• ♦️ neko
+┃◈┃• ♦️ maid
+┃◈┃• ♦️ loli
+┃◈┃• ♦️ animegirl
+┃◈┃• ♦️ animegirl1
+┃◈┃• ♦️ animegirl2
+┃◈┃• ♦️ animegirl3
+┃◈┃• ♦️ animegirl4
+┃◈┃• ♦️ animegirl5
+┃◈┃• ♦️ anime1
+┃◈┃• ♦️ anime2
+┃◈┃• ♦️ anime3
+┃◈┃• ♦️ anime4
+┃◈┃• ♦️ anime5
+┃◈┃• ♦️ animenews
+┃◈┃• ♦️ foxgirl
+┃◈┃• ♦️ naruto
+┃◈╰─────────────────┈⊷
+╰━━━━━━━━━━━━━━━━━━━┈⊷
 
-╭━━〔 *Download Menu* 〕━━┈⊷
-┃◈╭─────────────·๏
-┃◈┃• apk
-┃◈┃• facebook
-┃◈┃• mediafire
-┃◈┃• pinterestdl
-┃◈┃• gitclone
-┃◈┃• gdrive
-┃◈┃• insta
-┃◈┃• ytmp3
-┃◈┃• ytmp4
-┃◈┃• play
-┃◈┃• song
-┃◈┃• video
-┃◈┃• ytmp3doc
-┃◈┃• ytmp4doc
-┃◈┃• tiktok
-┃◈└───────────┈⊷
-╰──────────────┈⊷
+╭━━〔 ℹ️ *OTHER MENU* 〕━━┈⊷
+┃◈╭─────────────────·๏
+┃◈┃• ♦️ timenow
+┃◈┃• ♦️ date
+┃◈┃• ♦️ count
+┃◈┃• ♦️ calculate
+┃◈┃• ♦️ countx
+┃◈┃• ♦️ flip
+┃◈┃• ♦️ coinflip
+┃◈┃• ♦️ rcolor
+┃◈┃• ♦️ roll
+┃◈┃• ♦️ fact
+┃◈┃• ♦️ cpp
+┃◈┃• ♦️ rw
+┃◈┃• ♦️ pair
+┃◈┃• ♦️ pair2
+┃◈┃• ♦️ pair3
+┃◈┃• ♦️ fancy
+┃◈┃• ♦️ logo <text>
+┃◈┃• ♦️ define
+┃◈┃• ♦️ news
+┃◈┃• ♦️ movie
+┃◈┃• ♦️ weather
+┃◈┃• ♦️ srepo
+┃◈┃• ♦️ insult
+┃◈┃• ♦️ save
+┃◈┃• ♦️ wikipedia
+┃◈┃• ♦️ gpass
+┃◈┃• ♦️ githubstalk
+┃◈┃• ♦️ yts
+┃◈┃• ♦️ ytv
+┃◈╰─────────────────┈⊷
+╰━━━━━━━━━━━━━━━━━━━┈⊷
+> ${config.DESCRIPTION}`;
 
-╭━━〔 *Converter Menu* 〕━━┈⊷
-┃◈╭─────────────·๏
-┃◈┃• attp
-┃◈┃• attp2
-┃◈┃• attp3
-┃◈┃• ebinary
-┃◈┃• dbinary
-┃◈┃• emojimix
-┃◈┃• mp3
-┃◈└───────────┈⊷
-╰──────────────┈⊷
+        await conn.sendMessage(
+            from,
+            {
+                image: { url: config.MENU_IMAGE_URL || 'https://files.catbox.moe/adymbp.jpg' },
+                caption: dec,
+                contextInfo: {
+                    mentionedJid: [m.sender],
+                    forwardingScore: 999,
+                    isForwarded: true,
+                    forwardedNewsletterMessageInfo: {
+                        newsletterJid: '120363401765045963@newsletter',
+                        newsletterName: config.BOT_NAME,
+                        serverMessageId: 143
+                    }
+                }
+            },
+            { quoted: mek }
+        );
 
-╭━━〔 *AI Menu* 〕━━┈⊷
-┃◈╭─────────────·๏
-┃◈┃• ai
-┃◈┃• bug
-┃◈┃• report
-┃◈┃• gpt
-┃◈┃• dalle
-┃◈┃• remini
-┃◈┃• gemini
-┃◈└───────────┈⊷
-╰──────────────┈⊷
-
-╭━━〔 *Tools Menu* 〕━━┈⊷
-┃◈╭─────────────·๏
-┃◈┃• calculator
-┃◈┃• tempmail
-┃◈┃• checkmail
-┃◈┃• trt
-┃◈┃• tts
-┃◈└───────────┈⊷
-╰──────────────┈⊷
-
-╭━━〔 *Group Menu* 〕━━┈⊷
-┃◈╭─────────────·๏
-┃◈┃• linkgroup
-┃◈┃• setppgc
-┃◈┃• setname
-┃◈┃• setdesc
-┃◈┃• group
-┃◈┃• gcsetting
-┃◈┃• welcome
-┃◈┃• add
-┃◈┃• kick
-┃◈┃• hidetag
-┃◈┃• tagall
-┃◈┃• antilink
-┃◈┃• antitoxic
-┃◈┃• promote
-┃◈┃• demote
-┃◈┃• getbio
-┃◈└───────────┈⊷
-╰──────────────┈⊷
-
-╭━━〔 *Search Menu* 〕━━┈⊷
-┃◈╭─────────────·๏
-┃◈┃• play
-┃◈┃• yts
-┃◈┃• imdb
-┃◈┃• google
-┃◈┃• gimage
-┃◈┃• pinterest
-┃◈┃• wallpaper
-┃◈┃• wikimedia
-┃◈┃• ytsearch
-┃◈┃• ringtone
-┃◈┃• lyrics
-┃◈└───────────┈⊷
-╰──────────────┈⊷
-
-╭━━〔 *Main Menu* 〕━━┈⊷
-┃◈╭─────────────·๏
-┃◈┃• ping
-┃◈┃• alive
-┃◈┃• owner
-┃◈┃• menu
-┃◈┃• infobot
-┃◈└───────────┈⊷
-╰──────────────┈⊷
-
-╭━━〔 *Owner Menu* 〕━━┈⊷
-┃◈╭─────────────·๏
-┃◈┃• join
-┃◈┃• leave
-┃◈┃• block
-┃◈┃• unblock
-┃◈┃• setppbot
-┃◈┃• anticall
-┃◈┃• setstatus
-┃◈┃• setnamebot
-┃◈┃• autotyping
-┃◈┃• alwaysonline
-┃◈┃• autoread
-┃◈┃• autosview
-┃◈└───────────┈⊷
-╰──────────────┈⊷
-
-╭━━〔 *Stalk Menu* 〕━━┈⊷
-┃◈╭─────────────·๏
-┃◈┃• truecaller
-┃◈┃• instastalk
-┃◈┃• githubstalk
-┃◈└───────────┈⊷
-╰──────────────┈⊷
-> *${config.DESCRIPTION}*`;
-
-    // Check if MENU_IMAGE exists in config and is not empty
-    let menuImage;
-    if (config.MENU_IMAGE && config.MENU_IMAGE.trim() !== '') {
-      try {
-        // Try to fetch the image from URL
-        const response = await axios.get(config.MENU_IMAGE, { responseType: 'arraybuffer' });
-        menuImage = Buffer.from(response.data, 'binary');
-      } catch (error) {
-        console.error('Error fetching menu image from URL, falling back to local image:', error);
-        menuImage = fs.readFileSync('./media/khan.jpg');
-      }
-    } else {
-      // Use local image if MENU_IMAGE is not configured
-      menuImage = fs.readFileSync('./media/khan.jpg');
+        // Send audio
+        await conn.sendMessage(from, {
+            audio: { url: 'https://github.com/criss-vevo/CRISS-DATA/raw/refs/heads/main/autovoice/menunew.m4a' },
+            mimetype: 'audio/mp4',
+            ptt: true
+        }, { quoted: mek });
+        
+    } catch (e) {
+        console.log(e);
+        reply(`❌ Error: ${e}`);
     }
-
-await Matrix.sendMessage(m.from, {
-  image: menuImage,
-  caption: str,
-  contextInfo: {
-    mentionedJid: [m.sender],
-    forwardingScore: 999,
-    isForwarded: true,
-    forwardedNewsletterMessageInfo: {
-      newsletterJid: '120363401765045963@newsletter',
-      newsletterName: "TREND-X",
-      serverMessageId: 143
-    }
-  }
-}, {
-  quoted: m
 });
 
-export default menu;
+

@@ -1,60 +1,43 @@
-import axios from "axios";
-import config from "../config.cjs";
+const { cmd } = require('../command');
+const axios = require('axios');
 
-const tiktok = async (m, Matrix) => {
-  const prefix = config.PREFIX;
-  const cmd = m.body.startsWith(prefix) ? m.body.slice(prefix.length).split(" ")[0].toLowerCase() : "";
-  const query = m.body.slice(prefix.length + cmd.length).trim();
-
-  if (!["tiktok", "tt"].includes(cmd)) return;
-
-  if (!query || !query.startsWith("http")) {
-    return Matrix.sendMessage(m.from, { text: "❌ *Usage:* `.tiktok <TikTok URL>`" }, { quoted: m });
-  }
-
-  try {
-    await Matrix.sendMessage(m.from, { react: { text: "⏳", key: m.key } });
-
-    const { data } = await axios.get(`https://api.davidcyriltech.my.id/download/tiktok?url=${query}`);
-
-    if (!data.success || !data.result || !data.result.video) {
-      return Matrix.sendMessage(m.from, { text: "⚠️ *Failed to fetch TikTok video. Please try again.*" }, { quoted: m });
+cmd({
+    pattern: "tiktok",
+    alias: ["ttdl", "tt", "tiktokdl"],
+    desc: "Download TikTok video without watermark",
+    category: "downloader",
+    react: "🎵",
+    filename: __filename
+},
+async (conn, mek, m, { from, args, q, reply }) => {
+    try {
+        if (!q) return reply("Please provide a TikTok video link.");
+        if (!q.includes("tiktok.com")) return reply("Invalid TikTok link.");
+        
+        reply("Downloading video, please wait...");
+        
+        const apiUrl = `https://delirius-apiofc.vercel.app/download/tiktok?url=${q}`;
+        const { data } = await axios.get(apiUrl);
+        
+        if (!data.status || !data.data) return reply("Failed to fetch TikTok video.");
+        
+        const { title, like, comment, share, author, meta } = data.data;
+        const videoUrl = meta.media.find(v => v.type === "video").org;
+        
+        const caption = `🎵 *TikTok Video* 🎵\n\n` +
+                        `👤 *User:* ${author.nickname} (@${author.username})\n` +
+                        `📖 *Title:* ${title}\n` +
+                        `👍 *Likes:* ${like}\n💬 *Comments:* ${comment}\n🔁 *Shares:* ${share}`;
+        
+        await conn.sendMessage(from, {
+            video: { url: videoUrl },
+            caption: caption,
+            contextInfo: { mentionedJid: [m.sender] }
+        }, { quoted: mek });
+        
+    } catch (e) {
+        console.error("Error in TikTok downloader command:", e);
+        reply(`An error occurred: ${e.message}`);
     }
-
-    const { desc, author, statistics, video, music } = data.result;
-
-    const caption = `🎵 *TikTok Video*\n\n💬 *${desc}*\n👤 *By:* ${author.nickname}\n❤️ *Likes:* ${statistics.likeCount}\n💬 *Comments:* ${statistics.commentCount}\n🔄 *Shares:* ${statistics.shareCount}\n\n📥 *Powered By trendexOfficial ✅*`;
-
-    await Matrix.sendMessage(m.from, {
-      video: { url: video },
-      mimetype: "video/mp4",
-      caption,
-      contextInfo: {
-        mentionedJid: [m.sender],
-        forwardingScore: 999,
-        isForwarded: true,
-        forwardedNewsletterMessageInfo: {
-          newsletterJid: "120363401765045963@newsletter",
-          newsletterName: "TREND-X",
-          serverMessageId: 143,
-        },
-      },
-    }, { quoted: m });
-
-    await Matrix.sendMessage(m.from, { react: { text: "✅", key: m.key } });
-
-    // Send the TikTok music separately
-    await Matrix.sendMessage(m.from, {
-      audio: { url: music },
-      mimetype: "audio/mpeg",
-      fileName: "TikTok_Audio.mp3",
-      caption: "🎶 *TikTok Audio Downloaded*",
-    }, { quoted: m });
-
-  } catch (error) {
-    console.error("TikTok Downloader Error:", error);
-    Matrix.sendMessage(m.from, { text: "❌ *An error occurred while processing your request. Please try again later.*" }, { quoted: m });
-  }
-};
-
-export default tiktok;
+});
+          
