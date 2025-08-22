@@ -19,7 +19,7 @@
     "BOT_NAME": {
       "description": "change bot name what you want!",
       "required": false,
-      "value": "NjabuloJb-elite"
+      "value": "TREND-X"
     },
     "MENU_IMAGE": {
       "description": "change menu image if want otherwise use default",
