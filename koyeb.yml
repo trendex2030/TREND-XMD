@@ -1,6 +1,6 @@
-name: trend-x
+name: Trend-x
 services:
-  - name: trend-x-service
+  - name: Trend-x-service
     type: web
     ports:
       - 5000
