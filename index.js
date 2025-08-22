@@ -52,15 +52,15 @@ async function start() {
   try {
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
     const { version, isLatest } = await fetchLatestBaileysVersion();
-    console.log(`🤖 Arslan-XD using WA v${version.join('.')}, isLatest: ${isLatest}`);
+    console.log(`🤖 TREND-X using WA v${version.join('.')}, isLatest: ${isLatest}`);
 
     const Matrix = makeWASocket({
       version,
       logger: pino({ level: 'silent' }),
       printQRInTerminal: useQR,
-      browser: ['Arslan-XD', 'safari', '3.3'],
+      browser: ['TREND-X', 'safari', '3.3'],
       auth: state,
-      getMessage: async () => ({ conversation: 'Arslan-XD whatsapp user bot' })
+      getMessage: async () => ({ conversation: 'TREND-X whatsapp user bot' })
     });
 
     Matrix.ev.on('connection.update', ({ connection, lastDisconnect }) => {
