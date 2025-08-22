@@ -1,5 +1,4 @@
-import dotenv from 'dotenv';
-dotenv.config();
+import config from './config.cjs';
 
 import {
     makeWASocket,
@@ -8,7 +7,8 @@ import {
     DisconnectReason,
     useMultiFileAuthState,
 } from '@whiskeysockets/baileys';
-import { Handler, Callupdate, GroupUpdate } from './data/index.js';
+
+import { Handler, Callupdate, GroupUpdate } from './src/event/index.js';
 import express from 'express';
 import pino from 'pino';
 import fs from 'fs';
@@ -18,10 +18,9 @@ import path from 'path';
 import chalk from 'chalk';
 import moment from 'moment-timezone';
 import axios from 'axios';
-import config from './config.cjs';
 import pkg from './lib/autoreact.cjs';
 const { emojis, doReact } = pkg;
-const prefix = process.env.PREFIX || config.PREFIX;
+
 const sessionName = "session";
 const app = express();
 const orange = chalk.bold.hex("#FFA500");
@@ -49,38 +48,20 @@ if (!fs.existsSync(sessionDir)) {
 }
 
 async function downloadSessionData() {
-    console.log("Debugging SESSION_ID:", config.SESSION_ID);
-
     if (!config.SESSION_ID) {
-        console.error('❌ Please add your session to SESSION_ID env !!');
+        console.error('Please add your session to SESSION_ID env !!');
         return false;
     }
-
     const sessdata = config.SESSION_ID.split("TREND-XMD~")[1];
-
-    if (!sessdata || !sessdata.includes("#")) {
-        console.error('❌ Invalid SESSION_ID format! It must contain both file ID and decryption key.');
-        return false;
-    }
-
-    const [fileID, decryptKey] = sessdata.split("#");
-
+    const url = `https://mega.nz/file/${sessdata}`;
     try {
-        console.log("🔄 Downloading Session...");
-        const file = File.fromURL(`https://mega.nz/file/${fileID}#${decryptKey}`);
-
-        const data = await new Promise((resolve, reject) => {
-            file.download((err, data) => {
-                if (err) reject(err);
-                else resolve(data);
-            });
-        });
-
+        const response = await axios.get(url);
+        const data = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
         await fs.promises.writeFile(credsPath, data);
         console.log("🔒 Session Successfully Loaded !!");
         return true;
     } catch (error) {
-        console.error('❌ Failed to download session data:', error);
+       // console.error('Failed to download session data:', error);
         return false;
     }
 }
@@ -89,56 +70,40 @@ async function start() {
     try {
         const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
         const { version, isLatest } = await fetchLatestBaileysVersion();
-        console.log(`🤖 TREND-X using WA v${version.join('.')}, isLatest: ${isLatest}`);
+        console.log(`🤖 Arslan-XD using WA v${version.join('.')}, isLatest: ${isLatest}`);
         
         const Matrix = makeWASocket({
             version,
             logger: pino({ level: 'silent' }),
             printQRInTerminal: useQR,
-            browser: ["TREND-X", "safari", "3.3"],
+            browser: ["Arslan-XD", "safari", "3.3"],
             auth: state,
             getMessage: async (key) => {
                 if (store) {
                     const msg = await store.loadMessage(key.remoteJid, key.id);
                     return msg.message || undefined;
                 }
-                return { conversation: "TREND-X whatsapp user bot" };
+                return { conversation: "Arslan-XD whatsapp user bot" };
             }
         });
 
-Matrix.ev.on('connection.update', (update) => {
-    const { connection, lastDisconnect } = update;
-    if (connection === 'close') {
-        if (lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut) {
-            start();
-        }
-    } else if (connection === 'open') {
-        if (initialConnection) {
-            console.log(chalk.green("Connected Successfully TREND-X 𓅓"));
-            Matrix.sendMessage(Matrix.user.id, { 
-                image: { url: "https://files.catbox.moe/adymbp.jpg" }, 
-                caption: `┏──────────────⊷
-┊ ɴᴀᴍᴇ :  *TREND-X*
-┊ ᴠᴇʀsɪᴏɴ : *.0.0.12 ʙᴇᴛᴀ*
-┗──────────────⊷
-┏           *【 device online 】⇳︎*
-- . ①  *ping*
-- . ②  *ᴍᴇɴᴜ*
-- . ③  *alive*
-- . ④  *update*
-- . ⑤  *uptime*
-┗
-┏──────────────⊷
-┊ *[TREND X connected]*
-┗──────────────⊷`
-            });
-            initialConnection = false;
-        } else {
-            console.log(chalk.blue("♻️ Connection reestablished after restart."));
-        }
-    }
-});
-        
+        Matrix.ev.on('connection.update', (update) => {
+            const { connection, lastDisconnect } = update;
+            if (connection === 'close') {
+                if (lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut) {
+                    start();
+                }
+            } else if (connection === 'open') {
+                if (initialConnection) {
+                    console.log(chalk.green("😃 Integration Successful️ ✅"));
+                    Matrix.sendMessage(Matrix.user.id, { text: `😃 Integration Successful️ ✅` });
+                    initialConnection = false;
+                } else {
+                    console.log(chalk.blue("♻️ Connection reestablished after restart."));
+                }
+            }
+        });
+
         Matrix.ev.on('creds.update', saveCreds);
 
         Matrix.ev.on("messages.upsert", async chatUpdate => await Handler(chatUpdate, Matrix, logger));
@@ -154,7 +119,6 @@ Matrix.ev.on('connection.update', (update) => {
         Matrix.ev.on('messages.upsert', async (chatUpdate) => {
             try {
                 const mek = chatUpdate.messages[0];
-                console.log(mek);
                 if (!mek.key.fromMe && config.AUTO_REACT) {
                     console.log(mek);
                     if (mek.message) {
@@ -166,27 +130,6 @@ Matrix.ev.on('connection.update', (update) => {
                 console.error('Error during auto reaction:', err);
             }
         });
-        
-        Matrix.ev.on('messages.upsert', async (chatUpdate) => {
-    try {
-        const mek = chatUpdate.messages[0];
-        const fromJid = mek.key.participant || mek.key.remoteJid;
-        if (!mek || !mek.message) return;
-        if (mek.key.fromMe) return;
-        if (mek.message?.protocolMessage || mek.message?.ephemeralMessage || mek.message?.reactionMessage) return; 
-        if (mek.key && mek.key.remoteJid === 'status@broadcast' && config.AUTO_STATUS_SEEN) {
-            await Matrix.readMessages([mek.key]);
-            
-            if (config.AUTO_STATUS_REPLY) {
-                const customMessage = config.STATUS_READ_MSG || '✅ Auto Status Seen Bot By TREND-X';
-                await Matrix.sendMessage(fromJid, { text: customMessage }, { quoted: mek });
-            }
-        }
-    } catch (err) {
-        console.error('Error handling messages.upsert event:', err);
-    }
-});
-
     } catch (error) {
         console.error('Critical Error:', error);
         process.exit(1);
@@ -219,5 +162,3 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
-
-
