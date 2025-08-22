@@ -1,6 +1,6 @@
 // config.cjs
 module.exports = {
-  SESSION_ID: "TREND-XMD~",
+  SESSION_ID: "TREND-XMD~K0oyED7Q#G7-ev5r3bAQn667HEAdUOUJZm5PZdkSBNEeBrWni9sc",
   AUTO_STATUS_SEEN: true,
   AUTO_DL: false,
   AUTO_READ: true,
