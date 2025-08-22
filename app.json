@@ -1,8 +1,9 @@
 {
-  "name": "TREND-X",
-  "description": "I am TREND-X WhatsApp MultiDevice Bot built in NodeJs to enhance the experience.",
-  "logo": "https://files.catbox.moe/adymbp.jpg",
-  "keywords": ["TREND-X"],
+  "name": "whatsapp-bot (TREND-X)",
+  "description": " Whatsapp bot.",
+  "keywords": [
+    "whatsapp bot"
+  ],
   "repository": "https://github.com/trendex2030/TREND-XMD",
   "stack": "container",
   "env": { 
@@ -16,101 +17,40 @@
       "required": true,
       "value": "public"
     },
-    "BOT_NAME": {
-      "description": "change bot name what you want!",
-      "required": false,
-      "value": "TREND-X"
-    },
-    "MENU_IMAGE": {
-      "description": "change menu image if want otherwise use default",
-      "required": false,
-      "value": "https://files.catbox.moe/adymbp.jpg"
-    },
-    "DESCRIPTION": {
-      "description": "add caption for menu and etc",
-      "required": false,
-      "value": "> 𓅓︎Pσɯҽɾҽԃ Ⴆყ TREND X"
-    },
-    "ANTI_DELETE": {
-      "description": "set path for antidelete for same chat set to same",
-      "required": true,
-      "value": "inbox"
-    },
-    "ANTI_DELETE_PATH": {
-      "description": "make it true for use anti delete",
-      "required": true,
-      "value": "true"
-    },
-    
     "AUTO_STATUS_SEEN": {
       "description": "make it true if you want bot to view status",
       "required": false,
-      "value": "true"
-    },
-    "AUTO_STATUS_REPLY": {
-      "description": "make it true if you want to send message after seen status",
-      "required": false,
-      "value": "false"
-    },
-    "STATUS_READ_MSG": {
-      "description": "set your status reply message",
-      "required": false,
-      "value": "*Just saw your status. Keep it 100, fam! 🖤*"
-    },
-    "OWNER_NAME": {
-      "description": "set owner name",
-      "required": false,
-      "value": "Njabulo Jb"
-    },
-    "OWNER_NUMBER": {
-      "description": "set your owner number",
-      "required": false,
-      "value": "254110081982"
+      "value": ""
     },
     "AUTO_READ": {
       "description": "make it true if you want bot to read message",
       "required": false,
-      "value": "false"
+      "value": ""
     },
     "AUTO_TYPING": {
       "description": "make it true if you want bot to show typing",
       "required": false,
-      "value": "false"
+      "value": ""
     },
     "AUTO_RECORDING": {
       "description": "make it true if you want bot to show recording audio",
       "required": false,
-      "value": "false"
+      "value": ""
     },
     "ALWAYS_ONLINE": {
       "description": "make it true if you want bot to show always online",
       "required": false,
-      "value": "false"
+      "value": ""
     },
     "AUTO_BLOCK": {
       "description": "make it true if you want bot to auto block only 212 numbers",
       "required": false,
-      "value": "false"
+      "value": ""
     },
     "REJECT_CALL": {
       "description": "make it true if you want to reject call",
       "required": false,
-      "value": "false"
-    },
-    "WELCOME": {
-      "description": "make it true if you want to enable auto welcome",
-      "required": false,
-      "value": "true" 
-      },
-    "ANTILINK": {
-      "description": "make it true if you want to enable auto delete links",
-      "required": false,
-      "value": "true"  
-    },
-    "PREFIX": {
-      "description": "Your Bot Prefix default (.)",
-      "required": false,
-      "value": "."
+      "value": ""
     }
     },
     "buildpacks": [
