@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: DIANA-MD-BOT
+    name: TREND-X-BOT
     env: docker
     region: Frankfurt
     plan: free
