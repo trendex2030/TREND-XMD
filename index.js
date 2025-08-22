@@ -1,137 +1,113 @@
-import config from './config.cjs';
-import {
-  makeWASocket,
-  fetchLatestBaileysVersion,
-  DisconnectReason,
-  useMultiFileAuthState
-} from '@whiskeysockets/baileys';
-import { Handler, Callupdate, GroupUpdate } from './src/event/index.js';
-import express from 'express';
-import pino from 'pino';
-import fs from 'fs';
-import NodeCache from 'node-cache';
-import path from 'path';
-import chalk from 'chalk';
-import axios from 'axios';
-import pkg from './lib/autoreact.cjs';
-const { emojis, doReact } = pkg;
+// index.js
+const fs = require('fs');
+const path = require('path');
+const axios = require('axios');
+const express = require('express');
+const { Boom } = require('@hapi/boom');
+const {
+    default: makeWASocket,
+    DisconnectReason,
+    useMultiFileAuthState,
+    fetchLatestBaileysVersion
+} = require('@whiskeysockets/baileys');
 
-const sessionName = 'session';
-const app = express();
+// ==========================
+// CONFIG
+// ==========================
 const PORT = process.env.PORT || 3000;
-let useQR = false;
-let initialConnection = true;
+const SESSION_ID = process.env.SESSION_ID || ''; // Example: TREND-XMD~https://mega.nz/file/EXAMPLE_LINK
+const SESSION_DIR = path.join(__dirname, 'session');
+const CREDS_FILE = path.join(SESSION_DIR, 'creds.json');
 
-const logger = pino({ timestamp: () => `,"time":"${new Date().toJSON()}"` }).child({});
-logger.level = 'trace';
-
-const sessionDir = path.join(path.dirname(new URL(import.meta.url).pathname), sessionName);
-const credsPath = path.join(sessionDir, 'creds.json');
-if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
-
-async function downloadSessionData() {
-  if (!config.SESSION_ID) {
-    console.error('Please add your session to SESSION_ID env !!');
-    return false;
-  }
-  const sessdata = config.SESSION_ID.split('TREND-XMD~')[1];
-  const url = `https://mega.nz/file/${sessdata}`;
-  try {
-    const response = await axios.get(url);
-    const data = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
-    await fs.promises.writeFile(credsPath, data);
-    console.log('🔒 Session Successfully Loaded !!');
-    return true;
-  } catch (err) {
-    console.error('Failed to download session data:', err.message);
-    return false;
-  }
-}
-
-async function start() {
-  try {
-    const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
-    const { version, isLatest } = await fetchLatestBaileysVersion();
-    console.log(`🤖 TREND-X using WA v${version.join('.')}, isLatest: ${isLatest}`);
-
-    const Matrix = makeWASocket({
-      version,
-      logger: pino({ level: 'silent' }),
-      printQRInTerminal: useQR,
-      browser: ['TREND-X', 'safari', '3.3'],
-      auth: state,
-      getMessage: async () => ({ conversation: 'TREND-X whatsapp user bot' })
-    });
-
-    Matrix.ev.on('connection.update', ({ connection, lastDisconnect }) => {
-      if (connection === 'close' &&
-          lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut) {
-        start();
-      } else if (connection === 'open') {
-        if (initialConnection) {
-          console.log(chalk.green('😃 Integration Successful️ ✅'));
-          Matrix.sendMessage(Matrix.user.id, { text: '😃 Integration Successful️ ✅' });
-          initialConnection = false;
-        } else {
-          console.log(chalk.blue('♻️ Connection reestablished after restart.'));
-        }
-      }
-    });
-
-    Matrix.ev.on('creds.update', saveCreds);
-
-    Matrix.ev.on('messages.upsert', async (chatUpdate) => {
-      await Handler(chatUpdate, Matrix, logger);
-      try {
-        const mek = chatUpdate.messages[0];
-        if (!mek.key.fromMe && config.AUTO_REACT && mek.message) {
-          const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
-          await doReact(randomEmoji, mek, Matrix);
-        }
-      } catch (err) {
-        console.error('Error during auto reaction:', err);
-      }
-    });
-
-    Matrix.ev.on('call', async (json) => Callupdate(json, Matrix));
-    Matrix.ev.on('group-participants.update', async (msg) => GroupUpdate(Matrix, msg));
-
-    Matrix.public = config.MODE === 'public';
-  } catch (err) {
-    console.error('Critical Error in start():', err);
-    // don't exit; let reconnection logic or Heroku restart handle recovery
-  }
-}
-
-async function init() {
-  if (fs.existsSync(credsPath)) {
-    console.log('🔒 Session file found, proceeding without QR code.');
-    await start();
-  } else {
-    const downloaded = await downloadSessionData();
-    if (downloaded) {
-      console.log('🔒 Session downloaded, starting bot.');
-      await start();
-    } else {
-      console.log('No session found; QR code will be printed.');
-      useQR = true;
-      await start();
-    }
-  }
-}
-
-init();
-
-// Express keep-alive
-app.get('/', (req, res) => res.send('Hello World!'));
+// ==========================
+// EXPRESS SERVER (Heroku)
+// ==========================
+const app = express();
+app.get('/', (req, res) => res.send('TREND-XMD Bot is running!'));
 app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
 
-// Top-level error handlers
-process.on('unhandledRejection', (err) => console.error('Unhandled Rejection:', err));
-process.on('uncaughtException', (err) => console.error('Uncaught Exception:', err));
+// ==========================
+// SESSION LOADER
+// ==========================
+async function loadSessionFromEnv() {
+    if (!SESSION_ID.startsWith('TREND-XMD~')) {
+        console.error('❌ Invalid SESSION_ID format. It must start with TREND-XMD~');
+        process.exit(1);
+    }
+    const sessionValue = SESSION_ID.split('TREND-XMD~')[1].trim();
 
-// Graceful shutdown on Heroku dyno restart
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully...');
-  process.exit(0);
-});
+    // Only download if creds.json does not exist
+    if (!fs.existsSync(CREDS_FILE)) {
+        if (sessionValue.startsWith('http')) {
+            console.log('🔄 Downloading session from URL...');
+            try {
+                const { data } = await axios.get(sessionValue);
+                fs.mkdirSync(SESSION_DIR, { recursive: true });
+                fs.writeFileSync(CREDS_FILE, JSON.stringify(data));
+                console.log('✅ Session downloaded & saved.');
+            } catch (err) {
+                console.error('❌ Failed to download session file:', err.message);
+                process.exit(1);
+            }
+        } else {
+            console.error('❌ SESSION_ID must contain a valid file URL.');
+            process.exit(1);
+        }
+    } else {
+        console.log('🔒 Using existing session creds.');
+    }
+}
+
+// ==========================
+// WHATSAPP BOT
+// ==========================
+async function startBot() {
+    await loadSessionFromEnv();
+
+    const { state, saveCreds } = await useMultiFileAuthState('session');
+    const { version, isLatest } = await fetchLatestBaileysVersion();
+    console.log(`🤖 TREND-XMD using WA v${version.join('.')}, isLatest: ${isLatest}`);
+
+    const sock = makeWASocket({
+        auth: state,
+        printQRInTerminal: false, // disable QR printing for Heroku
+        version
+    });
+
+    sock.ev.on('creds.update', saveCreds);
+
+    sock.ev.on('connection.update', (update) => {
+        const { connection, lastDisconnect } = update;
+        if (connection === 'close') {
+            const reason = new Boom(lastDisconnect?.error)?.output?.statusCode;
+            console.log('Connection closed, reason:', reason);
+            if (reason !== DisconnectReason.loggedOut) {
+                console.log('Reconnecting...');
+                startBot();
+            } else {
+                console.log('Logged out. Delete session and re-pair.');
+            }
+        } else if (connection === 'open') {
+            console.log('✅ TREND-XMD Bot is connected and running!');
+        }
+    });
+
+    sock.ev.on('messages.upsert', async (msg) => {
+        const m = msg.messages[0];
+        if (!m.message || m.key.fromMe) return;
+
+        const sender = m.key.remoteJid;
+        const textMsg = m.message.conversation || m.message.extendedTextMessage?.text || '';
+        console.log(`📩 Message from ${sender}: ${textMsg}`);
+
+        // Simple ping command
+        if (textMsg.toLowerCase() === 'ping') {
+            await sock.sendMessage(sender, { text: 'pong' }, { quoted: m });
+        }
+    });
+}
+
+// ==========================
+// START BOT
+// ==========================
+startBot();
