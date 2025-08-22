@@ -1,19 +1,22 @@
-# Base image
-FROM node:16
+FROM node:20-bullseye
 
-# Set working directory
-WORKDIR /usr/src/app
+# Install required packages
+RUN apt-get update && \
+    apt-get install -y \
+        ffmpeg \
+        imagemagick \
+        webp && \
+    rm -rf /var/lib/apt/lists/*
 
-# Copy package.json and install dependencies
-COPY package*.json ./
-RUN npm install
+WORKDIR /app
 
-# Copy application source code
+COPY package.json .
+
+# Install dependencies
+RUN npm install && npm install -g qrcode-terminal pm2
+
 COPY . .
 
-# Expose the port the app runs on
 EXPOSE 3000
 
-# Start the application
 CMD ["npm", "start"]
-
