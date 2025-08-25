@@ -3437,15 +3437,12 @@ await reaction(m.chat, '⚡')
 try {
 let evaled = await eval(q)
 if (typeof evaled !== 'string') evaled = require('util').inspect(evaled)
-conaole.log(evaled)
+try {
+  // eval code
+  let evaled = await eval(someCode);  // or eval(someCode) if sync
+  console.log(evaled);
 } catch (err) {
-console.log(util.format(err))
-}
-}
-}
-} catch (err) {
-console.log(err)
-}
+  console.log(require('util').format(err));
 }
 
 let file = require.resolve(__filename)
