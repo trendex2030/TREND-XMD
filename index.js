@@ -133,7 +133,7 @@ async function startBot() {
       for (const participant of anu.participants) {
         let ppUrl;
         try { ppUrl = await conn.profilePictureUrl(participant, 'image'); }
-        catch { ppUrl = 'https://i.ibb.co/sFjX3nP/default.jpg'; }
+        catch { ppUrl = 'https://files.catbox.moe/j2h8dg.jpg'; }
         if (anu.action === 'add') {
           await conn.sendMessage(anu.id, {
             image: { url: ppUrl },
