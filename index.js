@@ -1,223 +1,184 @@
-import dotenv from 'dotenv';
-dotenv.config();
+console.clear();
+console.log('Starting bot...');
+require('./setting/config');
+process.on("uncaughtException", console.error);
 
-import {
-    makeWASocket,
-    Browsers,
-    fetchLatestBaileysVersion,
-    DisconnectReason,
-    useMultiFileAuthState,
-} from '@whiskeysockets/baileys';
-import { Handler, Callupdate, GroupUpdate } from './src/event/index.js';
-import express from 'express';
-import pino from 'pino';
-import fs from 'fs';
-import { File } from 'megajs';
-import NodeCache from 'node-cache';
-import path from 'path';
-import chalk from 'chalk';
-import moment from 'moment-timezone';
-import axios from 'axios';
-import config from './config.cjs';
-import pkg from './lib/autoreact.cjs';
-const { emojis, doReact } = pkg;
-const prefix = process.env.PREFIX || config.PREFIX;
-const sessionName = "session";
-const app = express();
-const orange = chalk.bold.hex("#FFA500");
-const lime = chalk.bold.hex("#32CD32");
-let useQR = false;
-let initialConnection = true;
-const PORT = process.env.PORT || 3000;
+const {
+  default: makeWASocket,
+  makeCacheableSignalKeyStore,
+  useMultiFileAuthState,
+  DisconnectReason,
+  fetchLatestBaileysVersion,
+  generateForwardMessageContent,
+  prepareWAMessageMedia,
+  generateWAMessageFromContent,
+  downloadContentFromMessage,
+  jidDecode,
+  proto
+} = require("@whiskeysockets/baileys");
 
-const MAIN_LOGGER = pino({
-    timestamp: () => `,"time":"${new Date().toJSON()}"`
-});
-const logger = MAIN_LOGGER.child({});
-logger.level = "trace";
+const pino = require('pino');
+const fs = require('fs');
+const path = require('path');
+const chalk = require('chalk');
+const { Boom } = require('@hapi/boom');
+const PhoneNumber = require('awesome-phonenumber');
+const { File } = require('megajs');
 
-const msgRetryCounterCache = new NodeCache();
+// --- utils & libs ---
+const {
+  smsg,
+  getBuffer,
+  sleep
+} = require('./start/lib/myfunction');
+const { imageToWebp, videoToWebp, writeExifImg, writeExifVid } = require('./start/lib/exif');
+const { color } = require('./start/lib/color');
 
-const __filename = new URL(import.meta.url).pathname;
-const __dirname = path.dirname(__filename);
-
+// Paths
 const sessionDir = path.join(__dirname, 'session');
 const credsPath = path.join(sessionDir, 'creds.json');
+if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
 
-if (!fs.existsSync(sessionDir)) {
-    fs.mkdirSync(sessionDir, { recursive: true });
-}
-
+// Download session from MEGA if SESSION_ID provided
 async function downloadSessionData() {
-    console.log("Debugging SESSION_ID:", config.SESSION_ID);
-
-    if (!config.SESSION_ID) {
-        console.error('❌ Please add your session to SESSION_ID env !!');
-        return false;
-    }
-
-    const sessdata = config.SESSION_ID.split("TREND-XMD~")[1];
-
-    if (!sessdata || !sessdata.includes("#")) {
-        console.error('❌ Invalid SESSION_ID format! It must contain both file ID and decryption key.');
-        return false;
-    }
-
-    const [fileID, decryptKey] = sessdata.split("#");
-
-    try {
-        console.log("🔄 Downloading Session...");
-        const file = File.fromURL(`https://mega.nz/file/${fileID}#${decryptKey}`);
-
-        const data = await new Promise((resolve, reject) => {
-            file.download((err, data) => {
-                if (err) reject(err);
-                else resolve(data);
-            });
-        });
-
-        await fs.promises.writeFile(credsPath, data);
-        console.log("🔒 Session Successfully Loaded !!");
-        return true;
-    } catch (error) {
-        console.error('❌ Failed to download session data:', error);
-        return false;
-    }
+  const sess = process.env.SESSION_ID || global.SESSION_ID;
+  if (!sess) {
+    console.log('No SESSION_ID provided, will use QR login.');
+    return false;
+  }
+  const parts = sess.split("TREND-XMD~")[1];
+  if (!parts || !parts.includes("#")) {
+    console.error('Invalid SESSION_ID format, expected TREND-XMD~fileID#key');
+    return false;
+  }
+  const [fileID, decryptKey] = parts.split("#");
+  try {
+    console.log("Downloading session from MEGA...");
+    const file = File.fromURL(`https://mega.nz/file/${fileID}#${decryptKey}`);
+    const data = await new Promise((resolve, reject) => {
+      file.download((err, data) => (err ? reject(err) : resolve(data)));
+    });
+    fs.writeFileSync(credsPath, data);
+    console.log("Session downloaded successfully.");
+    return true;
+  } catch (err) {
+    console.error("Failed to download session:", err);
+    return false;
+  }
 }
 
-async function start() {
-    try {
-        const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
-        const { version, isLatest } = await fetchLatestBaileysVersion();
-        console.log(`🤖 TREND-X using WA v${version.join('.')}, isLatest: ${isLatest}`);
-        
-        const Matrix = makeWASocket({
-            version,
-            logger: pino({ level: 'silent' }),
-            printQRInTerminal: useQR,
-            browser: ["TREND-X", "safari", "3.3"],
-            auth: state,
-            getMessage: async (key) => {
-                if (store) {
-                    const msg = await store.loadMessage(key.remoteJid, key.id);
-                    return msg.message || undefined;
-                }
-                return { conversation: "TREND-X whatsapp user bot" };
-            }
-        });
+async function startBot() {
+  const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
+  const { version } = await fetchLatestBaileysVersion();
 
-Matrix.ev.on('connection.update', (update) => {
+  const conn = makeWASocket({
+    printQRInTerminal: !fs.existsSync(credsPath), // show QR only if no creds
+    syncFullHistory: true,
+    markOnlineOnConnect: true,
+    browser: ["TREND-X", "Chrome", "1.0.0"],
+    version,
+    logger: pino({ level: 'fatal' }),
+    auth: {
+      creds: state.creds,
+      keys: makeCacheableSignalKeyStore(state.keys, pino().child({ level: 'silent' }))
+    }
+  });
+
+  const { makeInMemoryStore } = require("@rodrigogs/baileys-store");
+  const store = makeInMemoryStore({ logger: pino().child({ level: 'silent', stream: 'store' }) });
+  store.bind(conn.ev);
+
+  // Load your system handlers, group events, sticker helpers, etc. (copied from your old version)
+  conn.ev.on('messages.upsert', async chatUpdate => {
+    try {
+      let mek = chatUpdate.messages[0];
+      if (!mek.message) return;
+      mek.message = mek.message.ephemeralMessage?.message || mek.message;
+      if (mek.key.remoteJid === 'status@broadcast') return;
+      let m = smsg(conn, mek, store);
+      require("./start/system")(conn, m, chatUpdate, mek, store);
+    } catch (err) {
+      console.log(chalk.yellow("[ ERROR ]"), err);
+    }
+  });
+
+  // decodeJid, sendTextWithMentions, sticker funcs, etc.
+  conn.decodeJid = (jid) => jidDecode(jid)?.user ? jidDecode(jid).user + '@' + jidDecode(jid).server : jid;
+  conn.sendTextWithMentions = async (jid, text, quoted, options = {}) =>
+    conn.sendMessage(jid, {
+      text,
+      contextInfo: { mentionedJid: [...text.matchAll(/@(\d{0,16})/g)].map(v => v[1] + "@s.whatsapp.net") },
+      ...options
+    }, { quoted });
+
+  conn.sendImageAsSticker = async (jid, path, quoted, options = {}) => {
+    let buff = Buffer.isBuffer(path) ? path : fs.existsSync(path) ? fs.readFileSync(path) : await (await getBuffer(path));
+    let buffer = (options.packname || options.author) ? await writeExifImg(buff, options) : await imageToWebp(buff);
+    await conn.sendMessage(jid, { sticker: buffer }, { quoted });
+    return buffer;
+  };
+
+  conn.sendVideoAsSticker = async (jid, path, quoted, options = {}) => {
+    let buff = Buffer.isBuffer(path) ? path : fs.existsSync(path) ? fs.readFileSync(path) : await (await getBuffer(path));
+    let buffer = (options.packname || options.author) ? await writeExifVid(buff, options) : await videoToWebp(buff);
+    await conn.sendMessage(jid, { sticker: buffer }, { quoted });
+    return buffer;
+  };
+
+  // Group participant updates (welcome/goodbye), anticall, etc. - reuse your code
+  conn.ev.on('group-participants.update', async (anu) => {
+    if (global.welcome) {
+      const groupMetadata = await conn.groupMetadata(anu.id);
+      for (const participant of anu.participants) {
+        let ppUrl;
+        try { ppUrl = await conn.profilePictureUrl(participant, 'image'); }
+        catch { ppUrl = 'https://i.ibb.co/sFjX3nP/default.jpg'; }
+        if (anu.action === 'add') {
+          await conn.sendMessage(anu.id, {
+            image: { url: ppUrl },
+            caption: `Welcome @${participant.split('@')[0]} to ${groupMetadata.subject}`,
+            mentions: [participant]
+          });
+        } else if (anu.action === 'remove') {
+          await conn.sendMessage(anu.id, {
+            image: { url: ppUrl },
+            caption: `Goodbye @${participant.split('@')[0]}`,
+            mentions: [participant]
+          });
+        }
+      }
+    }
+  });
+
+  conn.ev.on('connection.update', async (update) => {
     const { connection, lastDisconnect } = update;
     if (connection === 'close') {
-        if (lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut) {
-            start();
-        }
+      if ((lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut) {
+        startBot();
+      } else {
+        console.log('Logged out.');
+      }
     } else if (connection === 'open') {
-        if (initialConnection) {
-            console.log(chalk.green("Connected Successfully TREND-X 𓅓"));
-            Matrix.sendMessage(Matrix.user.id, { 
-                image: { url: "https://files.catbox.moe/adymbp.jpg" }, 
-                caption: `┏──────────────⊷
-┊ ɴᴀᴍᴇ :  *TREND-X*
-┊ ᴠᴇʀsɪᴏɴ : *.0.0.12 ʙᴇᴛᴀ*
-┗──────────────⊷
-┏           *【 device online 】⇳︎*
-- . ①  *ping*
-- . ②  *ᴍᴇɴᴜ*
-- . ③  *alive*
-- . ④  *update*
-- . ⑤  *uptime*
-┗
-┏──────────────⊷
-┊ *[TREND X connected]*
-┗──────────────⊷`
-            });
-            initialConnection = false;
-        } else {
-            console.log(chalk.blue("♻️ Connection reestablished after restart."));
-        }
+      console.log(chalk.green('Bot connected successfully!'));
     }
-});
-        
-        Matrix.ev.on('creds.update', saveCreds);
+  });
 
-        Matrix.ev.on("messages.upsert", async chatUpdate => await Handler(chatUpdate, Matrix, logger));
-        Matrix.ev.on("call", async (json) => await Callupdate(json, Matrix));
-        Matrix.ev.on("group-participants.update", async (messag) => await GroupUpdate(Matrix, messag));
-
-        if (config.MODE === "public") {
-            Matrix.public = true;
-        } else if (config.MODE === "private") {
-            Matrix.public = false;
-        }
-
-        Matrix.ev.on('messages.upsert', async (chatUpdate) => {
-            try {
-                const mek = chatUpdate.messages[0];
-                console.log(mek);
-                if (!mek.key.fromMe && config.AUTO_REACT) {
-                    console.log(mek);
-                    if (mek.message) {
-                        const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
-                        await doReact(randomEmoji, mek, Matrix);
-                    }
-                }
-            } catch (err) {
-                console.error('Error during auto reaction:', err);
-            }
-        });
-        
-        Matrix.ev.on('messages.upsert', async (chatUpdate) => {
-    try {
-        const mek = chatUpdate.messages[0];
-        const fromJid = mek.key.participant || mek.key.remoteJid;
-        if (!mek || !mek.message) return;
-        if (mek.key.fromMe) return;
-        if (mek.message?.protocolMessage || mek.message?.ephemeralMessage || mek.message?.reactionMessage) return; 
-        if (mek.key && mek.key.remoteJid === 'status@broadcast' && config.AUTO_STATUS_SEEN) {
-            await Matrix.readMessages([mek.key]);
-            
-            if (config.AUTO_STATUS_REPLY) {
-                const customMessage = config.STATUS_READ_MSG || '✅ Auto Status Seen Bot By TREND-X';
-                await Matrix.sendMessage(fromJid, { text: customMessage }, { quoted: mek });
-            }
-        }
-    } catch (err) {
-        console.error('Error handling messages.upsert event:', err);
-    }
-});
-
-    } catch (error) {
-        console.error('Critical Error:', error);
-        process.exit(1);
-    }
+  conn.ev.on('creds.update', saveCreds);
 }
 
-async function init() {
-    if (fs.existsSync(credsPath)) {
-        console.log("🔒 Session file found, proceeding without QR code.");
-        await start();
-    } else {
-        const sessionDownloaded = await downloadSessionData();
-        if (sessionDownloaded) {
-            console.log("🔒 Session downloaded, starting bot.");
-            await start();
-        } else {
-            console.log("No session found or downloaded, QR code will be printed for authentication.");
-            useQR = true;
-            await start();
-        }
-    }
-}
+(async () => {
+  if (!fs.existsSync(credsPath)) {
+    const ok = await downloadSessionData();
+    if (!ok) console.log('Using QR login (scan printed QR).');
+  }
+  await startBot();
+})();
 
-init();
-
-app.get('/', (req, res) => {
-    res.send('Hello World!');
+// Hot reload
+let file = require.resolve(__filename);
+fs.watchFile(file, () => {
+  fs.unwatchFile(file);
+  console.log(chalk.redBright(`Update ${__filename}`));
+  delete require.cache[file];
+  require(file);
 });
-
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-});
-
-
