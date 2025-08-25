@@ -101,7 +101,7 @@ async function startBot() {
       let m = smsg(conn, mek, store);
       require("./start/system")(conn, m, chatUpdate, mek, store);
     } catch (err) {
-      console.log(chalk.yellow("[ ERROR ]"), err);
+      console.log(chalk.yellow.bold("[ ERROR ] system.js :\n"), err);
     }
   });
 
