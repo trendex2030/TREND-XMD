@@ -26,13 +26,17 @@ const PhoneNumber = require('awesome-phonenumber');
 const { File } = require('megajs');
 
 // --- utils & libs ---
-const {
-  smsg,
-  getBuffer,
-  sleep
-} = require('./start/lib/myfunction');
+const { smsg, getBuffer, sleep } = require('./start/lib/myfunction');
 const { imageToWebp, videoToWebp, writeExifImg, writeExifVid } = require('./start/lib/exif');
 const { color } = require('./start/lib/color');
+
+// ---- ADD EXPRESS SERVER FOR HEROKU ----
+const express = require('express');
+const app = express();
+const PORT = process.env.PORT || 3000;
+app.get('/', (req, res) => res.send('TREND-X Bot is running'));
+app.listen(PORT, () => console.log(`HTTP server running on port ${PORT}`));
+// ---------------------------------------
 
 // Paths
 const sessionDir = path.join(__dirname, 'session');
@@ -72,7 +76,7 @@ async function startBot() {
   const { version } = await fetchLatestBaileysVersion();
 
   const conn = makeWASocket({
-    printQRInTerminal: !fs.existsSync(credsPath), // show QR only if no creds
+    printQRInTerminal: !fs.existsSync(credsPath),
     syncFullHistory: true,
     markOnlineOnConnect: true,
     browser: ["TREND-X", "Chrome", "1.0.0"],
@@ -88,7 +92,6 @@ async function startBot() {
   const store = makeInMemoryStore({ logger: pino().child({ level: 'silent', stream: 'store' }) });
   store.bind(conn.ev);
 
-  // Load your system handlers, group events, sticker helpers, etc. (copied from your old version)
   conn.ev.on('messages.upsert', async chatUpdate => {
     try {
       let mek = chatUpdate.messages[0];
@@ -102,7 +105,6 @@ async function startBot() {
     }
   });
 
-  // decodeJid, sendTextWithMentions, sticker funcs, etc.
   conn.decodeJid = (jid) => jidDecode(jid)?.user ? jidDecode(jid).user + '@' + jidDecode(jid).server : jid;
   conn.sendTextWithMentions = async (jid, text, quoted, options = {}) =>
     conn.sendMessage(jid, {
@@ -125,7 +127,6 @@ async function startBot() {
     return buffer;
   };
 
-  // Group participant updates (welcome/goodbye), anticall, etc. - reuse your code
   conn.ev.on('group-participants.update', async (anu) => {
     if (global.welcome) {
       const groupMetadata = await conn.groupMetadata(anu.id);
