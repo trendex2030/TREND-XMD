@@ -3432,28 +3432,26 @@ console.log(util.format(e))
 }
 }
 if (budy.startsWith("X")) {
-  if (!Access) return;
-  await reaction(m.chat, '⚡');
+if (!Access) return
+await reaction(m.chat, '⚡')
+try {
+let evaled = await eval(q)
+if (typeof evaled !== 'string') evaled = require('util').inspect(evaled)
+conaole.log(evaled)
+} catch (err) {
+console.log(util.format(err))
+}
+}
+}
+} catch (err) {
+console.log(err)
+}
+}
 
-  try {
-    // Evaluate the user's code
-    let evaled = await eval(`(async () => { ${q} })()`); // wrap in async IIFE
-    if (typeof evaled !== 'string') {
-      evaled = require('util').inspect(evaled, { depth: 0 });
-    }
-    console.log(evaled);
-    await conn.sendTextWithMentions(m.chat, `✅ Result:\n${evaled}`, m);
-  } catch (err) {
-    console.log(require('util').format(err));
-    await conn.sendTextWithMentions(m.chat, `❌ Eval error:\n${require('util').format(err)}`, m);
-  }
-
-  // Hot reload this file on change
-  const file = require.resolve(__filename);
-  require('fs').watchFile(file, () => {
-    require('fs').unwatchFile(file);
-    console.log('\x1b[0;32m' + __filename + ' \x1b[1;32mupdated!\x1b[0m');
-    delete require.cache[file];
-    require(file);
-  });
-    }
+let file = require.resolve(__filename)
+require('fs').watchFile(file, () => {
+require('fs').unwatchFile(file)
+console.log('\x1b[0;32m'+__filename+' \x1b[1;32mupdated!\x1b[0m')
+delete require.cache[file]
+require(file)
+})
