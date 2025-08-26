@@ -1,24 +1,25 @@
-import dotenv from 'dotenv';
+const dotenv = require('dotenv');
 dotenv.config();
 
-import {
+const {
     makeWASocket,
     fetchLatestBaileysVersion,
     DisconnectReason,
-    useMultiFileAuthState,
-} from '@whiskeysockets/baileys';
-import { Handler, Callupdate, GroupUpdate } from './start/jadibot';
-import express from 'express';
-import pino from 'pino';
-import fs from 'fs';
-import NodeCache from 'node-cache';
-import path from 'path';
-import chalk from 'chalk';
-import moment from 'moment-timezone';
-import axios from 'axios';
-import config from './setting/config';
-import pkg from './start/lib/exif';
-import { fileURLToPath } from 'url';
+    useMultiFileAuthState
+} = require('@whiskeysockets/baileys');
+
+const { Handler, Callupdate, GroupUpdate } = require('./start/jadibot');
+const express = require('express');
+const pino = require('pino');
+const fs = require('fs');
+const NodeCache = require('node-cache');
+const path = require('path');
+const chalk = require('chalk');
+const moment = require('moment-timezone');
+const axios = require('axios');
+const config = require('./setting/config');
+const pkg = require('./start/lib/exif');
+const { fileURLToPath } = require('url');
 
 const { emojis, doReact } = pkg;
 const prefix = process.env.PREFIX || config.PREFIX;
