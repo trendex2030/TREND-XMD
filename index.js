@@ -112,8 +112,7 @@ Matrix.ev.on('connection.update', (update) => {
         if (lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut) {
             start();
         }
-    } else if (connection === 'open') {
-       else if (connection === "open") {
+    } else if (connection === "open") {
         conn.newsletterFollow("120363398454335106@newsletter");
         conn.newsletterFollow("120363402507750390@newsletter");
         console.log(`${ascii}`);
