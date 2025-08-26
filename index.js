@@ -3,7 +3,6 @@ dotenv.config();
 
 import {
     makeWASocket,
-    Browsers,
     fetchLatestBaileysVersion,
     DisconnectReason,
     useMultiFileAuthState,
@@ -12,7 +11,6 @@ import { Handler, Callupdate, GroupUpdate } from './start/jadibot';
 import express from 'express';
 import pino from 'pino';
 import fs from 'fs';
-import { File } from 'megajs';
 import NodeCache from 'node-cache';
 import path from 'path';
 import chalk from 'chalk';
@@ -20,6 +18,8 @@ import moment from 'moment-timezone';
 import axios from 'axios';
 import config from './setting/config';
 import pkg from './start/lib/exif';
+import { fileURLToPath } from 'url';
+
 const { emojis, doReact } = pkg;
 const prefix = process.env.PREFIX || config.PREFIX;
 const sessionName = "session";
@@ -38,7 +38,7 @@ logger.level = "trace";
 
 const msgRetryCounterCache = new NodeCache();
 
-const __filename = new URL(import.meta.url).pathname;
+const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const sessionDir = path.join(__dirname, 'session');
@@ -48,39 +48,23 @@ if (!fs.existsSync(sessionDir)) {
     fs.mkdirSync(sessionDir, { recursive: true });
 }
 
-async function downloadSessionData() {
+// Function to load base64 session ID and decode to creds.json
+async function loadBase64Session() {
     console.log("Debugging SESSION_ID:", config.SESSION_ID);
 
-    if (!config.SESSION_ID) {
-        console.error('❌ Please add your session to SESSION_ID env !!');
+    if (!config.SESSION_ID || !config.SESSION_ID.startsWith("TREND-XMD~")) {
+        console.error('❌ Invalid SESSION_ID format! It must start with TREND-XMD~');
         return false;
     }
-
-    const sessdata = config.SESSION_ID.split("TREND-XMD~")[1];
-
-    if (!sessdata || !sessdata.includes("#")) {
-        console.error('❌ Invalid SESSION_ID format! It must contain both file ID and decryption key.');
-        return false;
-    }
-
-    const [fileID, decryptKey] = sessdata.split("#");
 
     try {
-        console.log("🔄 Downloading Session...");
-        const file = File.fromURL(`https://mega.nz/file/${fileID}#${decryptKey}`);
-
-        const data = await new Promise((resolve, reject) => {
-            file.download((err, data) => {
-                if (err) reject(err);
-                else resolve(data);
-            });
-        });
-
-        await fs.promises.writeFile(credsPath, data);
-        console.log("🔒 Session Successfully Loaded !!");
+        const sessdata = config.SESSION_ID.split("TREND-XMD~")[1];
+        const buffer = Buffer.from(sessdata, 'base64');
+        await fs.promises.writeFile(credsPath, buffer);
+        console.log("🔒 Base64 session successfully decoded and saved!");
         return true;
-    } catch (error) {
-        console.error('❌ Failed to download session data:', error);
+    } catch (err) {
+        console.error('❌ Failed to decode base64 session:', err);
         return false;
     }
 }
@@ -98,26 +82,23 @@ async function start() {
             browser: ["TREND-X", "safari", "3.3"],
             auth: state,
             getMessage: async (key) => {
-                if (store) {
-                    const msg = await store.loadMessage(key.remoteJid, key.id);
-                    return msg.message || undefined;
-                }
+                // If you don't have store, you can remove this safely
                 return { conversation: "TREND-X whatsapp user bot" };
             }
         });
 
-Matrix.ev.on('connection.update', (update) => {
-    const { connection, lastDisconnect } = update;
-    if (connection === 'close') {
-        if (lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut) {
-            start();
-        }
-    } else if (connection === 'open') {
-        if (initialConnection) {
-            console.log(chalk.green("Connected Successfully TREND-X 𓅓"));
-            Matrix.sendMessage(Matrix.user.id, { 
-                image: { url: "https://files.catbox.moe/adymbp.jpg" }, 
-                caption: `┏──────────────⊷
+        Matrix.ev.on('connection.update', (update) => {
+            const { connection, lastDisconnect } = update;
+            if (connection === 'close') {
+                if (lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut) {
+                    start();
+                }
+            } else if (connection === 'open') {
+                if (initialConnection) {
+                    console.log(chalk.green("Connected Successfully TREND-X 𓅓"));
+                    Matrix.sendMessage(Matrix.user.id, { 
+                        image: { url: "https://files.catbox.moe/adymbp.jpg" }, 
+                        caption: `┏──────────────⊷
 ┊ ɴᴀᴍᴇ :  *TREND-X*
 ┊ ᴠᴇʀsɪᴏɴ : *.0.0.12 ʙᴇᴛᴀ*
 ┗──────────────⊷
@@ -131,13 +112,13 @@ Matrix.ev.on('connection.update', (update) => {
 ┏──────────────⊷
 ┊ *[TREND X connected]*
 ┗──────────────⊷`
-            });
-            initialConnection = false;
-        } else {
-            console.log(chalk.blue("♻️ Connection reestablished after restart."));
-        }
-    }
-});
+                    });
+                    initialConnection = false;
+                } else {
+                    console.log(chalk.blue("♻️ Connection reestablished after restart."));
+                }
+            }
+        });
         
         Matrix.ev.on('creds.update', saveCreds);
 
@@ -151,12 +132,11 @@ Matrix.ev.on('connection.update', (update) => {
             Matrix.public = false;
         }
 
+        // Auto reaction listener
         Matrix.ev.on('messages.upsert', async (chatUpdate) => {
             try {
                 const mek = chatUpdate.messages[0];
-                console.log(mek);
                 if (!mek.key.fromMe && config.AUTO_REACT) {
-                    console.log(mek);
                     if (mek.message) {
                         const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
                         await doReact(randomEmoji, mek, Matrix);
@@ -167,25 +147,25 @@ Matrix.ev.on('connection.update', (update) => {
             }
         });
         
+        // Auto status seen listener
         Matrix.ev.on('messages.upsert', async (chatUpdate) => {
-    try {
-        const mek = chatUpdate.messages[0];
-        const fromJid = mek.key.participant || mek.key.remoteJid;
-        if (!mek || !mek.message) return;
-        if (mek.key.fromMe) return;
-        if (mek.message?.protocolMessage || mek.message?.ephemeralMessage || mek.message?.reactionMessage) return; 
-        if (mek.key && mek.key.remoteJid === 'status@broadcast' && config.AUTO_STATUS_SEEN) {
-            await Matrix.readMessages([mek.key]);
-            
-            if (config.AUTO_STATUS_REPLY) {
-                const customMessage = config.STATUS_READ_MSG || '✅ Auto Status Seen Bot By TREND-X';
-                await Matrix.sendMessage(fromJid, { text: customMessage }, { quoted: mek });
+            try {
+                const mek = chatUpdate.messages[0];
+                const fromJid = mek.key.participant || mek.key.remoteJid;
+                if (!mek || !mek.message) return;
+                if (mek.key.fromMe) return;
+                if (mek.message?.protocolMessage || mek.message?.ephemeralMessage || mek.message?.reactionMessage) return; 
+                if (mek.key && mek.key.remoteJid === 'status@broadcast' && config.AUTO_STATUS_SEEN) {
+                    await Matrix.readMessages([mek.key]);
+                    if (config.AUTO_STATUS_REPLY) {
+                        const customMessage = config.STATUS_READ_MSG || '✅ Auto Status Seen Bot By TREND-X';
+                        await Matrix.sendMessage(fromJid, { text: customMessage }, { quoted: mek });
+                    }
+                }
+            } catch (err) {
+                console.error('Error handling messages.upsert event:', err);
             }
-        }
-    } catch (err) {
-        console.error('Error handling messages.upsert event:', err);
-    }
-});
+        });
 
     } catch (error) {
         console.error('Critical Error:', error);
@@ -198,12 +178,12 @@ async function init() {
         console.log("🔒 Session file found, proceeding without QR code.");
         await start();
     } else {
-        const sessionDownloaded = await downloadSessionData();
-        if (sessionDownloaded) {
-            console.log("🔒 Session downloaded, starting bot.");
+        const sessionLoaded = await loadBase64Session();
+        if (sessionLoaded) {
+            console.log("🔒 Base64 session loaded, starting bot.");
             await start();
         } else {
-            console.log("No session found or downloaded, QR code will be printed for authentication.");
+            console.log("No session found or decoded, QR code will be printed for authentication.");
             useQR = true;
             await start();
         }
@@ -219,5 +199,3 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
-
-
