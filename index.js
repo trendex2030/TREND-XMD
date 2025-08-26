@@ -1,76 +1,223 @@
-console.clear();
-console.log('starting...');
-require('./setting/config');
-process.on("uncaughtException", console.error);
+import dotenv from 'dotenv';
+dotenv.config();
 
-const {
-    default: makeWASocket,
-    makeCacheableSignalKeyStore,
-    DisconnectReason,
+import {
+    makeWASocket,
+    Browsers,
     fetchLatestBaileysVersion,
-    generateForwardMessageContent,
-    prepareWAMessageMedia,
-    generateWAMessageFromContent,
-    downloadContentFromMessage,
-    jidDecode,
-    proto,
-} = require("@whiskeysockets/baileys");
+    DisconnectReason,
+    useMultiFileAuthState,
+} from '@whiskeysockets/baileys';
+import { Handler, Callupdate, GroupUpdate } from './start/jadibot';
+import express from 'express';
+import pino from 'pino';
+import fs from 'fs';
+import { File } from 'megajs';
+import NodeCache from 'node-cache';
+import path from 'path';
+import chalk from 'chalk';
+import moment from 'moment-timezone';
+import axios from 'axios';
+import config from './setting/config';
+import pkg from './start/lib/exif';
+const { emojis, doReact } = pkg;
+const prefix = process.env.PREFIX || config.PREFIX;
+const sessionName = "session";
+const app = express();
+const orange = chalk.bold.hex("#FFA500");
+const lime = chalk.bold.hex("#32CD32");
+let useQR = false;
+let initialConnection = true;
+const PORT = process.env.PORT || 3000;
 
-const pino = require('pino');
-const fs = require('fs');
-const chalk = require('chalk');
-const { smsg } = require('./start/lib/myfunction');
+const MAIN_LOGGER = pino({
+    timestamp: () => `,"time":"${new Date().toJSON()}"`
+});
+const logger = MAIN_LOGGER.child({});
+logger.level = "trace";
 
-const MEGA_SESSION_ID = process.env.MEGA_SESSION_ID || "TREND-XMD~YOUR_BASE64_SESSION_HERE";
+const msgRetryCounterCache = new NodeCache();
 
-async function clientstart() {
-    // Decode Mega session
-    const sessionJSON = Buffer.from(MEGA_SESSION_ID.replace('TREND-XMD~', ''), 'base64').toString('utf-8');
-    const session = JSON.parse(sessionJSON);
+const __filename = new URL(import.meta.url).pathname;
+const __dirname = path.dirname(__filename);
 
-    const conn = makeWASocket({
-        version: (await (await fetch('https://github.com/kiuur/bails/raw/refs/heads/master/lib/Defaults/baileys-version.json')).json()).version,
-        browser: ["Ubuntu", "Chrome", "20.0.04"],
-        logger: pino({ level: 'fatal' }),
-        auth: {
-            creds: session.creds,
-            keys: makeCacheableSignalKeyStore(session.keys, pino().child({ level: 'silent', stream: 'store' })),
-        },
-        printQRInTerminal: false,
-        syncFullHistory: true,
-        markOnlineOnConnect: true,
-        connectTimeoutMs: 60000,
-        keepAliveIntervalMs: 10000,
-        generateHighQualityLinkPreview: true,
-    });
+const sessionDir = path.join(__dirname, 'session');
+const credsPath = path.join(sessionDir, 'creds.json');
 
-    // Bind store, message handling, etc. (rest of your logic remains unchanged)
-    const { makeInMemoryStore } = require("@rodrigogs/baileys-store");
-    const store = makeInMemoryStore({ logger: pino().child({ level: 'silent', stream: 'store' }) });
-    store.bind(conn.ev);
-
-    conn.ev.on('messages.upsert', async chatUpdate => {
-        try {
-            let mek = chatUpdate.messages[0];
-            if (!mek.message) return;
-            mek.message = Object.keys(mek.message)[0] === 'ephemeralMessage' ? mek.message.ephemeralMessage.message : mek.message;
-            if (!conn.public && !mek.key.fromMe && chatUpdate.type === 'notify') return;
-            let m = smsg(conn, mek, store);
-            require("./start/system")(conn, m, chatUpdate, mek, store);
-        } catch (err) {
-            console.log(chalk.yellow.bold("[ ERROR ] system.js :\n") + chalk.redBright(err));
-        }
-    });
-
-    conn.ev.on('creds.update', (creds) => {
-        // Update Mega session
-        session.creds = creds;
-        const newSession = "TREND-XMD~" + Buffer.from(JSON.stringify(session)).toString('base64');
-        console.log(chalk.greenBright("Updated Mega session ID:"));
-        console.log(newSession);
-    });
-
-    return conn;
+if (!fs.existsSync(sessionDir)) {
+    fs.mkdirSync(sessionDir, { recursive: true });
 }
 
-clientstart();
+async function downloadSessionData() {
+    console.log("Debugging SESSION_ID:", config.SESSION_ID);
+
+    if (!config.SESSION_ID) {
+        console.error('❌ Please add your session to SESSION_ID env !!');
+        return false;
+    }
+
+    const sessdata = config.SESSION_ID.split("TREND-XMD~")[1];
+
+    if (!sessdata || !sessdata.includes("#")) {
+        console.error('❌ Invalid SESSION_ID format! It must contain both file ID and decryption key.');
+        return false;
+    }
+
+    const [fileID, decryptKey] = sessdata.split("#");
+
+    try {
+        console.log("🔄 Downloading Session...");
+        const file = File.fromURL(`https://mega.nz/file/${fileID}#${decryptKey}`);
+
+        const data = await new Promise((resolve, reject) => {
+            file.download((err, data) => {
+                if (err) reject(err);
+                else resolve(data);
+            });
+        });
+
+        await fs.promises.writeFile(credsPath, data);
+        console.log("🔒 Session Successfully Loaded !!");
+        return true;
+    } catch (error) {
+        console.error('❌ Failed to download session data:', error);
+        return false;
+    }
+}
+
+async function start() {
+    try {
+        const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
+        const { version, isLatest } = await fetchLatestBaileysVersion();
+        console.log(`🤖 TREND-X using WA v${version.join('.')}, isLatest: ${isLatest}`);
+        
+        const Matrix = makeWASocket({
+            version,
+            logger: pino({ level: 'silent' }),
+            printQRInTerminal: useQR,
+            browser: ["TREND-X", "safari", "3.3"],
+            auth: state,
+            getMessage: async (key) => {
+                if (store) {
+                    const msg = await store.loadMessage(key.remoteJid, key.id);
+                    return msg.message || undefined;
+                }
+                return { conversation: "TREND-X whatsapp user bot" };
+            }
+        });
+
+Matrix.ev.on('connection.update', (update) => {
+    const { connection, lastDisconnect } = update;
+    if (connection === 'close') {
+        if (lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut) {
+            start();
+        }
+    } else if (connection === 'open') {
+        if (initialConnection) {
+            console.log(chalk.green("Connected Successfully TREND-X 𓅓"));
+            Matrix.sendMessage(Matrix.user.id, { 
+                image: { url: "https://files.catbox.moe/adymbp.jpg" }, 
+                caption: `┏──────────────⊷
+┊ ɴᴀᴍᴇ :  *TREND-X*
+┊ ᴠᴇʀsɪᴏɴ : *.0.0.12 ʙᴇᴛᴀ*
+┗──────────────⊷
+┏           *【 device online 】⇳︎*
+- . ①  *ping*
+- . ②  *ᴍᴇɴᴜ*
+- . ③  *alive*
+- . ④  *update*
+- . ⑤  *uptime*
+┗
+┏──────────────⊷
+┊ *[TREND X connected]*
+┗──────────────⊷`
+            });
+            initialConnection = false;
+        } else {
+            console.log(chalk.blue("♻️ Connection reestablished after restart."));
+        }
+    }
+});
+        
+        Matrix.ev.on('creds.update', saveCreds);
+
+        Matrix.ev.on("messages.upsert", async chatUpdate => await Handler(chatUpdate, Matrix, logger));
+        Matrix.ev.on("call", async (json) => await Callupdate(json, Matrix));
+        Matrix.ev.on("group-participants.update", async (messag) => await GroupUpdate(Matrix, messag));
+
+        if (config.MODE === "public") {
+            Matrix.public = true;
+        } else if (config.MODE === "private") {
+            Matrix.public = false;
+        }
+
+        Matrix.ev.on('messages.upsert', async (chatUpdate) => {
+            try {
+                const mek = chatUpdate.messages[0];
+                console.log(mek);
+                if (!mek.key.fromMe && config.AUTO_REACT) {
+                    console.log(mek);
+                    if (mek.message) {
+                        const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+                        await doReact(randomEmoji, mek, Matrix);
+                    }
+                }
+            } catch (err) {
+                console.error('Error during auto reaction:', err);
+            }
+        });
+        
+        Matrix.ev.on('messages.upsert', async (chatUpdate) => {
+    try {
+        const mek = chatUpdate.messages[0];
+        const fromJid = mek.key.participant || mek.key.remoteJid;
+        if (!mek || !mek.message) return;
+        if (mek.key.fromMe) return;
+        if (mek.message?.protocolMessage || mek.message?.ephemeralMessage || mek.message?.reactionMessage) return; 
+        if (mek.key && mek.key.remoteJid === 'status@broadcast' && config.AUTO_STATUS_SEEN) {
+            await Matrix.readMessages([mek.key]);
+            
+            if (config.AUTO_STATUS_REPLY) {
+                const customMessage = config.STATUS_READ_MSG || '✅ Auto Status Seen Bot By TREND-X';
+                await Matrix.sendMessage(fromJid, { text: customMessage }, { quoted: mek });
+            }
+        }
+    } catch (err) {
+        console.error('Error handling messages.upsert event:', err);
+    }
+});
+
+    } catch (error) {
+        console.error('Critical Error:', error);
+        process.exit(1);
+    }
+}
+
+async function init() {
+    if (fs.existsSync(credsPath)) {
+        console.log("🔒 Session file found, proceeding without QR code.");
+        await start();
+    } else {
+        const sessionDownloaded = await downloadSessionData();
+        if (sessionDownloaded) {
+            console.log("🔒 Session downloaded, starting bot.");
+            await start();
+        } else {
+            console.log("No session found or downloaded, QR code will be printed for authentication.");
+            useQR = true;
+            await start();
+        }
+    }
+}
+
+init();
+
+app.get('/', (req, res) => {
+    res.send('Hello World!');
+});
+
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+});
+
+
