@@ -6,9 +6,10 @@ const { generateWAMessageFromContent, proto } = pkg;
 import config from "../config.cjs";
 import axios from "axios";
 
-const xtime = moment.tz("Asia/Karachi").format("HH:mm:ss");
-const xdate = moment.tz("Asia/Karachi").format("DD/MM/YYYY");
-const time2 = moment().tz("Asia/Karachi").format("HH:mm:ss");
+// Time logic
+const xtime = moment.tz("Africa/Nairobi").format("HH:mm:ss");
+const xdate = moment.tz("Africa/Nairobi").format("DD/MM/YYYY");
+const time2 = moment().tz("Africa/Nairobi").format("HH:mm:ss");
 let pushwish = "";
 
 if (time2 < "05:00:00") {
@@ -25,27 +26,46 @@ if (time2 < "05:00:00") {
   pushwish = `Good Night 🌌`;
 }
 
-const test = async (m, Matrix) => {
-  let selectedListId;
-  const selectedButtonId = m?.message?.templateButtonReplyMessage?.selectedId;
-  const interactiveResponseMessage = m?.message?.interactiveResponseMessage;
-  if (interactiveResponseMessage) {
-    const paramsJson = interactiveResponseMessage.nativeFlowResponseMessage?.paramsJson;
-    if (paramsJson) {
-      const params = JSON.parse(paramsJson);
-      selectedListId = params.id;
-     // console.log(selectedListId);
+// Fancy font utility
+function toFancyFont(text, isUpperCase = false) {
+  const fonts = {
+    a: "ᴀ", b: "ʙ", c: "ᴄ", d: "ᴅ", e: "ᴇ", f: "ғ", g: "ɢ", h: "ʜ", 
+    i: "ɪ", j: "ᴊ", k: "ᴋ", l: "ʟ", m: "ᴍ", n: "ɴ", o: "ᴏ", p: "ᴘ", 
+    q: "ǫ", r: "ʀ", s: "s", t: "ᴛ", u: "ᴜ", v: "ᴠ", w: "ᴡ", x: "x", 
+    y: "ʏ", z: "ᴢ",
+  };
+  const formattedText = isUpperCase ? text.toUpperCase() : text.toLowerCase();
+  return formattedText
+    .split("")
+    .map((char) => fonts[char] || char)
+    .join("");
+}
+
+// Image fetch utility
+async function fetchMenuImage() {
+  const imageUrl = "https://files.catbox.moe/omgszj.jpg";
+  for (let i = 0; i < 3; i++) {
+    try {
+      const response = await axios.get(imageUrl, { responseType: "arraybuffer" });
+      return Buffer.from(response.data, "binary");
+    } catch (error) {
+      if (error.response?.status === 429 && i < 2) {
+        console.log(`Rate limit hit, retrying in 2s...`);
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        continue;
+      }
+      console.error("❌ Failed to fetch image:", error);
+      return null;
     }
   }
-  const selectedId = selectedListId || selectedButtonId;
-  
-  const prefix = /^[\\/!#.]/gi.test(m.body) ? m.body.match(/^[\\/!#.]/gi)[0] : '.';
-        const cmd = m.body.startsWith(prefix) ? m.body.slice(prefix.length).toLowerCase() : '';
-        let ethix = {
-    public: true 
-};
+}
 
-let mode = ethix.public ? 'public' : 'private';
+const menu = async (m, Matrix) => {
+  try {
+    const prefix = config.PREFIX;
+    const cmd = m.body.startsWith(prefix) ? m.body.slice(prefix.length).split(" ")[0].toLowerCase() : "";
+    const mode = config.MODE === "public" ? "public" : "private";
+    const totalCommands = 70;
 
         const validCommands = ['list', 'help', 'menu'];
 
