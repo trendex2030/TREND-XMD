@@ -2,6 +2,7 @@
   "name": "TREND-X",
   "version": "10.8.1",
   "description": "TREND-X latest multi device whatsapp bot",
+  "type": "module",
   "main": "index.js",
   "engines": {
   "node": ">=20.x",
