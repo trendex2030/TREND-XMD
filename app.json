@@ -100,7 +100,7 @@
     "WELCOME": {
       "description": "make it true if you want to enable auto welcome",
       "required": false,
-      "value": "true" 
+      "value": "false" 
       },
     "ANTILINK": {
       "description": "make it true if you want to enable auto delete links",
