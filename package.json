@@ -15,9 +15,9 @@
   },
   "keywords": ["TREND-X", "whatsapp-bot", "whatsapp md bot"],
   "author": "TRENDEX",
-  "license": "ISC",
+  "license": "",
   "dependencies": {
-    "@whiskeysockets/baileys": "github:XdKing2/Malvin-Baileys",
+    "@whiskeysockets/baileys": "^6.6.0",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@google/generative-ai": "^0.9.0",
     "@hapi/boom": "^10.0.1",
