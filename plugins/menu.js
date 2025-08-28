@@ -28,252 +28,130 @@ const menu = async (m, sock) => {
       console.log('🖼️ Profile pic fetch timed out or failed.');
     }
 
-    const menuText = `
-╭───────────────⭓
-│ 🤖 ʙᴏᴛ : *ᴘᴏᴘᴋɪᴅ-xᴅ*
-│ ⏱️ ʀᴜɴᴛɪᴍᴇ : ${uptime}
-│ ⚡ sᴘᴇᴇᴅ : ${responseTime}s
-│ 🌐 ᴍᴏᴅᴇ : public
-│ 🧩 ᴘʀᴇғɪx : ${prefix}
-│ 👑 ᴏᴡɴᴇʀ : ᴘᴏᴘᴋɪᴅ
-│ 🛠️ ᴅᴇᴠ : *ᴘᴏᴘᴋɪᴅ*
-│ 🧪 ᴠᴇʀ : *2.0.0*
-╰───────────────⭓
-━━━━━━━━━━━━━━━━━━
-💥 *𝙒𝙀𝙇𝘾𝙊𝙈𝙀 𝙏𝙊 𝙋𝙊𝙋𝙆𝙄𝘿-𝙓𝘿* 💥
-━━━━━━━━━━━━━━━━━━
-
-📜 『 *𝗠𝗔𝗜𝗡 𝗠𝗘𝗡𝗨* 』
-❏ menu
-❏ bugmenu
-❏ speed
-❏ alive
-❏ sudo
-❏ addpremium
-❏ dev
-❏ allvar
-❏ ping
-❏ owner
-
-👑 『 *𝗢𝗪𝗡𝗘𝗥 𝗖𝗢𝗠𝗠𝗔𝗡𝗗𝗦* 』
-❏ join
-❏ autoread
-❏ pair
-❏ leave
-❏ autostatusview
-❏ autotyping
-❏ autoblock
-❏ autorecording
-❏ autosticker
-❏ antisticker
-❏ restart
-❏ block
-❏ unblock
-❏ anticall
-❏ antidelete
-❏ upload
-❏ vv
-❏ setstatusmsg
-❏ allcmds
-❏ calculater
-❏ alwaysonline
-❏ delete
-❏ vv2
-❏ setprefix
-❏ setownername
-❏ profile
-❏ repo
-
-🧠 『 *𝗔𝗜 & 𝗖𝗛𝗔𝗧* 』
-❏ ai
-❏ bug
-❏ bot
-❏ report
-❏ gemini
-❏ chatbot
-❏ gpt
-❏ lydia
-❏ popkid-ai
-
-🎨 『 *𝗖𝗢𝗡𝗩𝗘𝗥𝗧𝗘𝗥𝗦* 』
-❏ security
-❏ sessioncheck
-❏ blockunknown
-❏ autoblock
-❏ host
-❏ antispam
-❏ antibugs
-❏ attp
-❏ gimage
-❏ mp3
-❏ ss
-❏ fancy
-❏ url
-❏ url2
-❏ shorten
-❏ sticker
-❏ take
-
-🔍 『 *𝗦𝗘𝗔𝗥𝗖𝗛 & 𝗧𝗢𝗢𝗟𝗦* 』
-❏ google
-❏ mediafire
-❏ quranvideo
-❏ quraimage
-❏ facebook
-❏ instagram
-❏ tiktok
-❏ lyrics
-❏ ytsearch
-❏ app
-❏ bing
-❏ ipstalk
-❏ imdb
-❏ pinterest
-❏ githubstalk
-❏ image
-❏ ringtone
-❏ playstore
-❏ shazam
-
-🎮 『 *𝗙𝗨𝗡 & 𝗚𝗔𝗠𝗘𝗦* 』
-❏ getpp
-❏ avatar
-❏ wcg
-❏ joke
-❏ ttt
-❏ yesorno
-❏ connect4
-❏ rank
-❏ quizz
-❏ movie
-❏ flirt
-❏ givetext
-❏ roast
-❏ anime
-❏ profile
-❏ ebinary
-❏ fetch
-❏ qc
-❏ couple
-❏ poll
-❏ score
-❏ toqr
-❏ tempmail
-
-👥 『 *𝗚𝗥𝗢𝗨𝗣 𝗖𝗢𝗡𝗧𝗥𝗢𝗟* 』
-❏ kickall
-❏ remove
-❏ tagall
-❏ hidetag
-❏ forward
-❏ getall
-❏ group open
-❏ group close
-❏ add
-❏ vcf
-❏ left
-❏ promoteall
-❏ demoteall
-❏ setdescription
-❏ linkgc
-❏ antilink
-❏ antilink2
-❏ antisticker
-❏ antispam
-❏ create
-❏ setname
-❏ promote
-❏ demote
-❏ groupinfo
-❏ balance
-
-🔞 『 *𝗛𝗘𝗡𝗧𝗔𝗜* 』
-❏ hneko
-❏ trap
-❏ hwaifu
-❏ hentai
-
-🎧 『 *𝗔𝗨𝗗𝗜𝗢 𝗘𝗙𝗙𝗘𝗖𝗧𝗦* 』
-❏ earrape
-❏ deep
-❏ blown
-❏ bass
-❏ nightcore
-❏ fat
-❏ fast
-❏ robot
-❏ tupai
-❏ smooth
-❏ slow
-❏ reverse
-
-💫 『 *𝗥𝗘𝗔𝗖𝗧𝗜𝗢𝗡𝗦* 』
-❏ bonk
-❏ bully
-❏ yeet
-❏ slap
-❏ nom
-❏ poke
-❏ awoo
-❏ wave
-❏ smile
-❏ dance
-❏ smug
-❏ blush
-❏ cringe
-❏ sad
-❏ happy
-❏ shinobu
-❏ cuddle
-❏ glomp
-❏ handhold
-❏ highfive
-❏ kick
-❏ kill
-❏ kiss
-❏ cry
-❏ bite
-❏ lick
-❏ pat
-❏ hug
-
-━━━━━━━━━━━━━━━━━━
-⚡ *POPᴋID GLE V2.0* ⚡
-━━━━━━━━━━━━━━━━━━
-    `.trim();
-
-    const newsletterContext = {
-      forwardingScore: 999,
-      isForwarded: true,
-      forwardedNewsletterMessageInfo: {
-        newsletterName: "Popkid-Gle",
-        newsletterJid: "120363420342566562@newsletter"
-      }
+    const menuSections = {
+    header: {
+      title: '☘ 𝗞𝗘𝗩𝗜𝗡 𝗧𝗘𝗖𝗛 ☘',
+      content: [
+        `👤 ᴏᴡɴᴇʀ: ☘ ᴋᴇʟᴠɪɴ ᴛᴇᴄʜ ☘`,
+        `👤 ᴜsᴇʀ: ${pushname || 'Unknown'}`,
+        `🤖 ʙᴏᴛɴᴀᴍᴇ: ᴠɪɴɪᴄ xᴍᴅ`,
+        `🌍 ᴍᴏᴅᴇ: ${conn.public ? 'ᴘᴜʙʟɪᴄ' : 'ᴘʀɪᴠᴀᴛᴇ'}`,
+        `🛠️ ᴘʀᴇғɪx: [ ${prefix} ]`,
+        `📈 ᴄᴍᴅs: 100+`, // Replace with actual command count if available
+        `🧪 ᴠᴇʀsɪᴏɴ: 1.0.0-beta`,
+      ],
+    },
+    bug: {
+      title: '> 𝗕𝗨𝗚 𝗠𝗘𝗡𝗨 ',
+      commands: [
+        '𝖨𝗇𝗏𝗂𝗌', '𝖷𝖼𝗋𝖺𝗌𝗁', '𝖢𝗋𝖺𝗌𝗁', '𝖣𝖾𝗅𝖺𝗒',
+        '𝙲𝚛𝚊𝚡', '𝖣𝖾𝗅𝖺𝗒𝖼𝗈𝗆𝖻𝗈', '𝖣𝖺𝗋𝗄', '𝖣𝗂𝗆', 'Vinic-crash',
+      ],
+    },
+    owner: {
+      title: '> 𝗢𝗪𝗡𝗘𝗥 𝗠𝗘𝗡𝗨  ',
+      commands: [
+        '𝖠𝖽𝖽𝗉𝗋𝖾𝗆 <number>', '𝖣𝖾𝗅𝗉𝗋𝖾𝗆 <number>', '𝖯𝗎𝖻𝗅𝗂𝖼', 'private',
+        '𝙸𝚍𝚌𝚑', '𝙲𝚛𝚎𝚊𝚝𝚎𝚌𝚑',
+        'antidelete', 'delete', 'setpp', 'lastseen', 'groupid', 'reportbug',
+        'listblocked', 'online', 'join', 'leave', 'setbio', 'reqeust', 'block', 'toviewonce', 'autoviewstatus', 'unblock', 'unblockall',
+        'anticall', 'antibug', 'vv', 'idch','autorecording', 'autotyping', 'getpp',
+      ],
+    },
+    group: {
+      title: '> 𝗚𝗥𝗢𝗨𝗣 𝗠𝗘𝗡𝗨  ',
+      commands: [
+        '𝖧𝗂𝖽𝖾𝗍𝖺𝗀', '𝖪𝗂𝖼𝗄', '𝖱𝖾𝗌𝖾𝗍𝗅𝗂𝗇𝗄', 'linkgc', 'checkchan',
+        'antilink', 'listonline', 'add', 'listactive', 'listinactive', 'close',
+        'open', 'kick', 'closetime', 'disappear', 'opentime', 'poll', 'totalmembers', 'mediatag', 'getgrouppp', 'antilink', 'tagall', 'tagadmin', 'setgroupname', 'delgrouppp', 'invite', 'editinfo', 'promote', 'demote', 'setdisc', 
+      ],
+    },
+    download: {
+      title: '> 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗 𝗠𝗘𝗡𝗨 ',
+      commands: ['play', 'play2', 'song', 'gitclone', 'mediafire',  'ytmp4', 'apk',  'tiktok', 'tiktok2', 'facebook'],
+    },
+    convert: {
+      title: '> 𝗖𝗢𝗡𝗩𝗘𝗥𝗧 𝗠𝗘𝗡𝗨 ',
+      commands: ['toaudio', 'toimage', 'url', 'tovideo', 'sticker'],
+    },
+    cmdTool: {
+      title: '> 𝗖𝗠𝗗 𝗧𝗢𝗢𝗟 𝗠𝗘𝗡𝗨 ',
+      commands: ['ping', 'repo', 'botstatus', 'botinfo', 'sc', 'serverinfo', 'alive'],
+    },
+    other: {
+      title: '> 𝗢𝗧𝗛𝗘𝗥 𝗠𝗘𝗡𝗨  ',
+      commands: ['time', 'calculate', 'sticker', 'owner', 'dev', 'fliptext', 'say', 'getdevice', 'getabout', 'sswebtab'],
+    },
+    ephoto: {
+      title: '> 𝗘𝗣𝗛𝗢𝗧𝗢𝟯𝟲𝟬 𝗠𝗔𝗞𝗘𝗥 ',
+      commands: ['blackpinklogo', 'blackpinkstyle', 'glossysilver', 'glitchtext', 'flux', 'dragonball'],
+    },
+    search: {
+      title: '> 𝗦𝗘𝗔𝗥𝗖𝗛 𝗠𝗘𝗡𝗨 ',
+      commands: ['lyrics', 'chord', 'weather', 'movie', 'shazam'],
+    },
+    fun: {
+      title: '> 𝗙𝗨𝗡 𝗠𝗘𝗡𝗨 ',
+      commands: ['dare', 'Quotes', 'truth', 'compatibility', 'compliment', 'hack', 'jokes'],
+    },
+    religion: {
+      title: '> 𝗥𝗘𝗟𝗜𝗚𝗜𝗢𝗡 𝗠𝗘𝗡𝗨 ',
+      commands: ['Bible', 'Quran'],
+    },
     };
+  
 
-    // menu image message
-    await sock.sendMessage(m.from, {
-      image: { url: profilePictureUrl },
-      caption: menuText,
-      contextInfo: newsletterContext
+  // Function to format the menu
+  const formatMenu = () => {
+    let menu = `╭═✦〔 🤖 ᴠɪɴɪᴄ xᴅ 〕✦═╮\n`;
+    menu += menuSections.header.content.map(line => `│ ${line}`).join('\n') + '\n';
+    menu += `╰═✦═════════════╯\n\n`;
+
+    for (const section of Object.values(menuSections).slice(1)) {
+      menu += `${section.title}\n`;
+      menu += section.commands.map(cmd => `│ ✦ ${prefix}${cmd}`).join('\n') + '\n';
+      menu += `╰─────────\n\n`;
+    }
+    menu += `> ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴋᴇʟᴠɪɴ ᴛᴇᴄʜ `;
+    return menu;
+  };
+
+  try {
+    // Send menu with image
+    await conn.sendMessage(m.chat, {
+      image: { url: 'https://files.catbox.moe/ptpl5c.jpeg' },
+      caption: formatMenu(),
+      contextInfo: {
+        mentionedJid: [m.sender],
+        forwardedNewsletterMessageInfo: {
+          newsletterName: '☘ 𝗞𝗘𝗩𝗜𝗡 𝗧𝗘𝗖𝗛 ☘',
+          newsletterJid: '120363401548261516@newsletter',
+        },
+        isForwarded: true,
+        externalAdReply: {
+          showAdAttribution: true,
+          title: global.botname || 'ᴠɪɴɪᴄ xᴍᴅ',
+          body: '☘ ᴋᴇʟᴠɪɴ ᴛᴇᴄʜ ☘',
+          mediaType: 3,
+          renderLargerThumbnail: false,
+          thumbnail: cina, // Ensure 'cina' is defined or replace with valid thumbnail
+          sourceUrl: 'https://whatsapp.com/channel/0029Vb6eR1r05MUgYul6Pc2W',
+        },
+      },
     }, { quoted: m });
 
-    // 🎵 popkid random songs
-    const songUrls = [
-      'https://files.catbox.moe/2b33jv.mp3',
-      'https://files.catbox.moe/0cbqfa.mp3',
-      'https://files.catbox.moe/j4ids2.mp3',
-      'https://files.catbox.moe/vv2qla.mp3'  
-    ];
-    const random = songUrls[Math.floor(Math.random() * songUrls.length)];
-
-    await sock.sendMessage(m.from, {
-      audio: { url: random },
+    // Send audio
+    await conn.sendMessage(m.chat, {
+      audio: { url: 'https://files.catbox.moe/jdozs7.mp3' },
       mimetype: 'audio/mpeg',
-      ptt: false,
-      contextInfo: newsletterContext
+      ptt: true,
     }, { quoted: m });
-  }
+  } catch (error) {
+    console.error('Error sending menu:', error);
+    await conn.sendMessage(m.chat, {
+      text: '⚠️ Error displaying menu. Please try again!',
+    }, { quoted: m });
+        }
 };
 
 export default menu;
