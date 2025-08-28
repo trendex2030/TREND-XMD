@@ -1,104 +1,158 @@
-import config from '../config.cjs' assert { type: 'json' }; // if config.cjs is actually JSON
-// OR if it's JS export:
-// import config from '../config.cjs';
+import config from '../../config.cjs';
 
 const menu = async (m, sock) => {
   const prefix = config.PREFIX;
-  const cmd = m.body.startsWith(prefix)
-    ? m.body.slice(prefix.length).split(' ')[0].toLowerCase()
-    : '';
+  const cmd = m.body.startsWith(prefix) ? m.body.slice(prefix.length).split(' ')[0].toLowerCase() : '';
   const text = m.body.slice(prefix.length + cmd.length).trim();
 
   if (cmd === "menu") {
     const start = new Date().getTime();
-    if (m.React) await m.React('✨');
+    await m.React('✨');
     const end = new Date().getTime();
     const responseTime = ((end - start) / 1000).toFixed(2);
 
-    // uptime
     const uptimeSeconds = process.uptime();
     const hours = Math.floor(uptimeSeconds / 3600);
     const minutes = Math.floor((uptimeSeconds % 3600) / 60);
     const seconds = Math.floor(uptimeSeconds % 60);
     const uptime = `${hours}h ${minutes}m ${seconds}s`;
 
-    // profile picture fallback
-    let profilePictureUrl = 'https://files.catbox.moe/x18hgf.jpg';
+    let profilePictureUrl = 'https://files.catbox.moe/x18hgf.jpg'; 
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 1500);
+      const timeout = setTimeout(() => controller.abort(), 1500); 
       const pp = await sock.profilePictureUrl(m.sender, 'image', { signal: controller.signal });
       clearTimeout(timeout);
       if (pp) profilePictureUrl = pp;
-    } catch {
-      console.log('🖼️ Profile pic fetch failed.');
+    } catch (error) {
+      console.log('🖼️ Profile pic fetch timed out or failed.');
     }
 
-    // safe vars
-    const pushname = m.pushName || 'Unknown';
-    const botname = global.botname || 'ᴠɪɴɪᴄ xᴍᴅ';
+    const menuText = `
+╭───────────────⭓
+│ 🤖 ʙᴏᴛ : *ᴋᴇʟᴠɪɴ-xᴍᴅ*
+│ ⏱️ ʀᴜɴᴛɪᴍᴇ : ${uptime}
+│ ⚡ sᴘᴇᴇᴅ : ${responseTime}s
+│ 🌐 ᴍᴏᴅᴇ : ${config.PUBLIC ? 'public' : 'private'}
+│ 🧩 ᴘʀᴇғɪx : ${prefix}
+│ 👑 ᴏᴡɴᴇʀ : ᴋᴇʟᴠɪɴ ᴛᴇᴄʜ
+│ 🛠️ ᴅᴇᴠ : *ᴋᴇʟᴠɪɴ ᴛᴇᴄʜ*
+│ 🧪 ᴠᴇʀ : *1.0.0*
+╰───────────────⭓
+━━━━━━━━━━━━━━━━━━
+💥 *𝙒𝙀𝙇𝘾𝙊𝙈𝙀 𝙏𝙊 ᴋᴇʟᴠɪɴ-𝙓ᴍᴅ* 💥
+━━━━━━━━━━━━━━━━━━
 
-    const menuSections = {
-      header: {
-        title: '☘ 𝗞𝗘𝗩𝗜𝗡 𝗧𝗘𝗖𝗛 ☘',
-        content: [
-          `👤 ᴏᴡɴᴇʀ: ☘ ᴋᴇʟᴠɪɴ ᴛᴇ𝗰𝗵 ☘`,
-          `👤 ᴜsᴇʀ: ${pushname}`,
-          `🤖 ʙᴏᴛɴᴀᴍᴇ: ${botname}`,
-          `🌍 ᴍᴏᴅᴇ: ${config.PUBLIC ? 'ᴘᴜʙʟɪᴄ' : 'ᴘʀɪᴠᴀᴛᴇ'}`,
-          `🛠️ ᴘʀᴇғɪx: [ ${prefix} ]`,
-          `📈 ᴄᴍᴅs: 100+`,
-          `🧪 ᴠᴇʀsɪᴏɴ: 1.0.0-beta`,
-        ],
-      },
-      // ... keep the same sections as before ...
-    };
+📜 『 *𝗠𝗔𝗜𝗡 𝗠𝗘𝗡𝗨* 』
+❏ menu
+❏ alive
+❏ ping
+❏ speed
+❏ owner
+❏ allvar
+❏ addpremium
+❏ repo
+❏ sudo
 
-    const formatMenu = () => {
-      let out = `╭═✦〔 🤖 ${botname} 〕✦═╮\n`;
-      out += menuSections.header.content.map(line => `│ ${line}`).join('\n') + '\n';
-      out += `╰═✦═════════════╯\n\n`;
-      for (const section of Object.values(menuSections).slice(1)) {
-        out += `${section.title}\n`;
-        out += section.commands.map(c => `│ ✦ ${prefix}${c}`).join('\n') + '\n';
-        out += `╰─────────\n\n`;
+👑 『 *𝗢𝗪𝗡𝗘𝗥 𝗖𝗢𝗠𝗠𝗔𝗡𝗗𝗦* 』
+❏ join
+❏ leave
+❏ restart
+❏ block
+❏ unblock
+❏ setprefix
+❏ alwaysonline
+❏ setownername
+❏ profile
+
+🧠 『 *𝗔𝗜 & 𝗖𝗛𝗔𝗧* 』
+❏ ai
+❏ gpt
+❏ gemini
+❏ chatbot
+❏ report
+
+🎨 『 *𝗖𝗢𝗡𝗩𝗘𝗥𝗧𝗘𝗥𝗦* 』
+❏ sticker
+❏ take
+❏ attp
+❏ mp3
+❏ ss
+❏ fancy
+❏ url
+❏ shorten
+
+🔍 『 *𝗦𝗘𝗔𝗥𝗖𝗛 & 𝗧𝗢𝗢𝗟𝗦* 』
+❏ google
+❏ pinterest
+❏ youtube
+❏ tiktok
+❏ instagram
+❏ imdb
+❏ playstore
+❏ mediafire
+
+🎮 『 *𝗙𝗨𝗡 & 𝗚𝗔𝗠𝗘𝗦* 』
+❏ ttt
+❏ yesorno
+❏ connect4
+❏ joke
+❏ roast
+❏ anime
+❏ profile
+❏ poll
+❏ quizz
+❏ tempmail
+
+👥 『 *𝗚𝗥𝗢𝗨𝗣 𝗖𝗢𝗡𝗧𝗥𝗢𝗟* 』
+❏ kick
+❏ remove
+❏ tagall
+❏ hidetag
+❏ promote
+❏ demote
+❏ linkgc
+❏ antilink
+❏ groupinfo
+❏ setname
+❏ setdescription
+
+━━━━━━━━━━━━━━━━━━
+⚡ *𝗞𝗘𝗟𝗩𝗜𝗡 𝗧𝗘𝗖𝗛 𝗩1.0* ⚡
+━━━━━━━━━━━━━━━━━━
+    `.trim();
+
+    const newsletterContext = {
+      forwardingScore: 999,
+      isForwarded: true,
+      forwardedNewsletterMessageInfo: {
+        newsletterName: "☘ 𝗞𝗘𝗟𝗩𝗜𝗡 𝗧𝗘𝗖𝗛 ☘",
+        newsletterJid: "120363401548261516@newsletter"
       }
-      out += `> ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴋᴇʟᴠɪɴ ᴛ𝗲𝗰𝗵 `;
-      return out;
     };
 
-    try {
-      await sock.sendMessage(m.chat, {
-        image: { url: 'https://files.catbox.moe/ptpl5c.jpeg' },
-        caption: formatMenu(),
-        contextInfo: {
-          mentionedJid: [m.sender],
-          forwardedNewsletterMessageInfo: {
-            newsletterName: '☘ 𝗞𝗘𝗩𝗜𝗡 𝗧𝗘𝗖𝗛 ☘',
-            newsletterJid: '120363401548261516@newsletter',
-          },
-          isForwarded: true,
-          externalAdReply: {
-            showAdAttribution: true,
-            title: botname,
-            body: '☘ ᴋᴇ𝗟ᴠɪɴ ᴛᴇ𝗰𝗵 ☘',
-            mediaType: 3,
-            renderLargerThumbnail: false,
-            thumbnailUrl: profilePictureUrl,
-            sourceUrl: 'https://whatsapp.com/channel/0029Vb6eR1r05MUgYul6Pc2W',
-          },
-        },
-      }, { quoted: m });
+    // send menu
+    await sock.sendMessage(m.from, {
+      image: { url: profilePictureUrl },
+      caption: menuText,
+      contextInfo: newsletterContext
+    }, { quoted: m });
 
-      await sock.sendMessage(m.chat, {
-        audio: { url: 'https://files.catbox.moe/jdozs7.mp3' },
-        mimetype: 'audio/mpeg',
-        ptt: true,
-      }, { quoted: m });
-    } catch (e) {
-      console.error('Error sending menu:', e);
-      await sock.sendMessage(m.chat, { text: '⚠️ Error displaying menu. Please try again!' }, { quoted: m });
-    }
+    // 🎵 random bgm
+    const songUrls = [
+      'https://files.catbox.moe/jdozs7.mp3',
+      'https://files.catbox.moe/2b33jv.mp3',
+      'https://files.catbox.moe/0cbqfa.mp3',
+      'https://files.catbox.moe/vv2qla.mp3'
+    ];
+    const random = songUrls[Math.floor(Math.random() * songUrls.length)];
+
+    await sock.sendMessage(m.from, {
+      audio: { url: random },
+      mimetype: 'audio/mpeg',
+      ptt: false,
+      contextInfo: newsletterContext
+    }, { quoted: m });
   }
 };
 
