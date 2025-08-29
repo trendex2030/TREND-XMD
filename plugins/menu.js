@@ -17,7 +17,7 @@ const menu = async (m, sock) => {
     const seconds = Math.floor(uptimeSeconds % 60);
     const uptime = `${hours}h ${minutes}m ${seconds}s`;
 
-    let profilePictureUrl = 'https://files.catbox.moe/x18hgf.jpg'; 
+    let profilePictureUrl = 'https://files.catbox.moe/j2h8dg.jpg'; 
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 1500); 
@@ -30,95 +30,215 @@ const menu = async (m, sock) => {
 
     const menuText = `
 ╭───────────────⭓
-│ 🤖 ʙᴏᴛ : *ᴋᴇʟᴠɪɴ-xᴍᴅ*
+│ 🤖 ʙᴏᴛ : *TREND-X*
 │ ⏱️ ʀᴜɴᴛɪᴍᴇ : ${uptime}
 │ ⚡ sᴘᴇᴇᴅ : ${responseTime}s
-│ 🌐 ᴍᴏᴅᴇ : ${config.PUBLIC ? 'public' : 'private'}
+│ 🌐 ᴍᴏᴅᴇ : public
 │ 🧩 ᴘʀᴇғɪx : ${prefix}
-│ 👑 ᴏᴡɴᴇʀ : ᴋᴇʟᴠɪɴ ᴛᴇᴄʜ
-│ 🛠️ ᴅᴇᴠ : *ᴋᴇʟᴠɪɴ ᴛᴇᴄʜ*
-│ 🧪 ᴠᴇʀ : *1.0.0*
+│ 👑 ᴏᴡɴᴇʀ : TRENDEX
+│ 🛠️ ᴅᴇᴠ : *TRENDEX*
+│ 🧪 ᴠᴇʀ : *2.0.0*
 ╰───────────────⭓
 ━━━━━━━━━━━━━━━━━━
-💥 *𝙒𝙀𝙇𝘾𝙊𝙈𝙀 𝙏𝙊 ᴋᴇʟᴠɪɴ-𝙓ᴍᴅ* 💥
+𓅓 *𝙒𝙀𝙇𝘾𝙊𝙈𝙀* 𓅓
 ━━━━━━━━━━━━━━━━━━
 
 📜 『 *𝗠𝗔𝗜𝗡 𝗠𝗘𝗡𝗨* 』
 ❏ menu
-❏ alive
-❏ ping
+❏ bugmenu
 ❏ speed
-❏ owner
-❏ allvar
-❏ addpremium
-❏ repo
+❏ alive
 ❏ sudo
+❏ addpremium
+❏ dev
+❏ allvar
+❏ ping
+❏ owner
 
 👑 『 *𝗢𝗪𝗡𝗘𝗥 𝗖𝗢𝗠𝗠𝗔𝗡𝗗𝗦* 』
 ❏ join
+❏ autoread
+❏ pair
 ❏ leave
+❏ autostatusview
+❏ autotyping
+❏ autoblock
+❏ autorecording
+❏ autosticker
+❏ antisticker
 ❏ restart
 ❏ block
 ❏ unblock
-❏ setprefix
+❏ anticall
+❏ antidelete
+❏ upload
+❏ vv
+❏ setstatusmsg
+❏ allcmds
+❏ calculater
 ❏ alwaysonline
+❏ delete
+❏ vv2
+❏ setprefix
 ❏ setownername
 ❏ profile
+❏ repo
 
 🧠 『 *𝗔𝗜 & 𝗖𝗛𝗔𝗧* 』
 ❏ ai
-❏ gpt
+❏ bug
+❏ bot
+❏ report
 ❏ gemini
 ❏ chatbot
-❏ report
+❏ gpt
+❏ lydia
+❏ popkid-ai
 
 🎨 『 *𝗖𝗢𝗡𝗩𝗘𝗥𝗧𝗘𝗥𝗦* 』
-❏ sticker
-❏ take
+❏ security
+❏ sessioncheck
+❏ blockunknown
+❏ autoblock
+❏ host
+❏ antispam
+❏ antibugs
 ❏ attp
+❏ gimage
 ❏ mp3
 ❏ ss
 ❏ fancy
 ❏ url
+❏ url2
 ❏ shorten
+❏ sticker
+❏ take
 
 🔍 『 *𝗦𝗘𝗔𝗥𝗖𝗛 & 𝗧𝗢𝗢𝗟𝗦* 』
 ❏ google
-❏ pinterest
-❏ youtube
-❏ tiktok
-❏ instagram
-❏ imdb
-❏ playstore
 ❏ mediafire
+❏ quranvideo
+❏ quraimage
+❏ facebook
+❏ instagram
+❏ tiktok
+❏ lyrics
+❏ ytsearch
+❏ app
+❏ bing
+❏ ipstalk
+❏ imdb
+❏ pinterest
+❏ githubstalk
+❏ image
+❏ ringtone
+❏ playstore
+❏ shazam
 
 🎮 『 *𝗙𝗨𝗡 & 𝗚𝗔𝗠𝗘𝗦* 』
+❏ getpp
+❏ avatar
+❏ wcg
+❏ joke
 ❏ ttt
 ❏ yesorno
 ❏ connect4
-❏ joke
+❏ rank
+❏ quizz
+❏ movie
+❏ flirt
+❏ givetext
 ❏ roast
 ❏ anime
 ❏ profile
+❏ ebinary
+❏ fetch
+❏ qc
+❏ couple
 ❏ poll
-❏ quizz
+❏ score
+❏ toqr
 ❏ tempmail
 
 👥 『 *𝗚𝗥𝗢𝗨𝗣 𝗖𝗢𝗡𝗧𝗥𝗢𝗟* 』
-❏ kick
+❏ kickall
 ❏ remove
 ❏ tagall
 ❏ hidetag
-❏ promote
-❏ demote
+❏ forward
+❏ getall
+❏ group open
+❏ group close
+❏ add
+❏ vcf
+❏ left
+❏ promoteall
+❏ demoteall
+❏ setdescription
 ❏ linkgc
 ❏ antilink
-❏ groupinfo
+❏ antilink2
+❏ antisticker
+❏ antispam
+❏ create
 ❏ setname
-❏ setdescription
+❏ promote
+❏ demote
+❏ groupinfo
+❏ balance
+
+🔞 『 *𝗛𝗘𝗡𝗧𝗔𝗜* 』
+❏ hneko
+❏ trap
+❏ hwaifu
+❏ hentai
+
+🎧 『 *𝗔𝗨𝗗𝗜𝗢 𝗘𝗙𝗙𝗘𝗖𝗧𝗦* 』
+❏ earrape
+❏ deep
+❏ blown
+❏ bass
+❏ nightcore
+❏ fat
+❏ fast
+❏ robot
+❏ tupai
+❏ smooth
+❏ slow
+❏ reverse
+
+💫 『 *𝗥𝗘𝗔𝗖𝗧𝗜𝗢𝗡𝗦* 』
+❏ bonk
+❏ bully
+❏ yeet
+❏ slap
+❏ nom
+❏ poke
+❏ awoo
+❏ wave
+❏ smile
+❏ dance
+❏ smug
+❏ blush
+❏ cringe
+❏ sad
+❏ happy
+❏ shinobu
+❏ cuddle
+❏ glomp
+❏ handhold
+❏ highfive
+❏ kick
+❏ kill
+❏ kiss
+❏ cry
+❏ bite
+❏ lick
+❏ pat
+❏ hug
 
 ━━━━━━━━━━━━━━━━━━
-⚡ *𝗞𝗘𝗟𝗩𝗜𝗡 𝗧𝗘𝗖𝗛 𝗩1.0* ⚡
+𓅓 *TREND-X* 𓅓
 ━━━━━━━━━━━━━━━━━━
     `.trim();
 
@@ -126,24 +246,24 @@ const menu = async (m, sock) => {
       forwardingScore: 999,
       isForwarded: true,
       forwardedNewsletterMessageInfo: {
-        newsletterName: "☘ 𝗞𝗘𝗟𝗩𝗜𝗡 𝗧𝗘𝗖𝗛 ☘",
-        newsletterJid: "120363401548261516@newsletter"
+        newsletterName: "",
+        newsletterJid: ""
       }
     };
 
-    // send menu
+    // menu image message
     await sock.sendMessage(m.from, {
       image: { url: profilePictureUrl },
       caption: menuText,
       contextInfo: newsletterContext
     }, { quoted: m });
 
-    // 🎵 random bgm
+    // 🎵 Trendex random songs
     const songUrls = [
-      'https://files.catbox.moe/jdozs7.mp3',
-      'https://files.catbox.moe/2b33jv.mp3',
-      'https://files.catbox.moe/0cbqfa.mp3',
-      'https://files.catbox.moe/vv2qla.mp3'
+      '',
+      '',
+      '',
+      ''  
     ];
     const random = songUrls[Math.floor(Math.random() * songUrls.length)];
 
