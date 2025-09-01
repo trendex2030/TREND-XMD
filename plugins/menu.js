@@ -17,7 +17,7 @@ const menu = async (m, sock) => {
     const seconds = Math.floor(uptimeSeconds % 60);
     const uptime = `${hours}h ${minutes}m ${seconds}s`;
 
-    let profilePictureUrl = 'https://files.catbox.moe/j2h8dg.jpg'; 
+    let profilePictureUrl = 'https://files.catbox.moe/x18hgf.jpg'; 
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 1500); 
@@ -30,17 +30,17 @@ const menu = async (m, sock) => {
 
     const menuText = `
 ╭───────────────⭓
-│ 🤖 ʙᴏᴛ : *TREND-X*
+│ 🤖 ʙᴏᴛ : *ᴘᴏᴘᴋɪᴅ-xᴅ*
 │ ⏱️ ʀᴜɴᴛɪᴍᴇ : ${uptime}
 │ ⚡ sᴘᴇᴇᴅ : ${responseTime}s
 │ 🌐 ᴍᴏᴅᴇ : public
 │ 🧩 ᴘʀᴇғɪx : ${prefix}
-│ 👑 ᴏᴡɴᴇʀ : TRENDEX
-│ 🛠️ ᴅᴇᴠ : *TRENDEX*
+│ 👑 ᴏᴡɴᴇʀ : ᴘᴏᴘᴋɪᴅ
+│ 🛠️ ᴅᴇᴠ : *ᴘᴏᴘᴋɪᴅ*
 │ 🧪 ᴠᴇʀ : *2.0.0*
 ╰───────────────⭓
 ━━━━━━━━━━━━━━━━━━
-𓅓 *𝙒𝙀𝙇𝘾𝙊𝙈𝙀* 𓅓
+💥 *𝙒𝙀𝙇𝘾𝙊𝙈𝙀 𝙏𝙊 𝙋𝙊𝙋𝙆𝙄𝘿-𝙓𝘿* 💥
 ━━━━━━━━━━━━━━━━━━
 
 📜 『 *𝗠𝗔𝗜𝗡 𝗠𝗘𝗡𝗨* 』
@@ -238,7 +238,7 @@ const menu = async (m, sock) => {
 ❏ hug
 
 ━━━━━━━━━━━━━━━━━━
-𓅓 *TREND-X* 𓅓
+⚡ *POPᴋID GLE V2.0* ⚡
 ━━━━━━━━━━━━━━━━━━
     `.trim();
 
@@ -246,8 +246,8 @@ const menu = async (m, sock) => {
       forwardingScore: 999,
       isForwarded: true,
       forwardedNewsletterMessageInfo: {
-        newsletterName: "",
-        newsletterJid: ""
+        newsletterName: "Popkid-Gle",
+        newsletterJid: "120363420342566562@newsletter"
       }
     };
 
@@ -258,12 +258,12 @@ const menu = async (m, sock) => {
       contextInfo: newsletterContext
     }, { quoted: m });
 
-    // 🎵 Trendex random songs
+    // 🎵 popkid random songs
     const songUrls = [
-      '',
-      '',
-      '',
-      ''  
+      'https://files.catbox.moe/2b33jv.mp3',
+      'https://files.catbox.moe/0cbqfa.mp3',
+      'https://files.catbox.moe/j4ids2.mp3',
+      'https://files.catbox.moe/vv2qla.mp3'  
     ];
     const random = songUrls[Math.floor(Math.random() * songUrls.length)];
 
