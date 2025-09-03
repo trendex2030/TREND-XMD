@@ -19,7 +19,7 @@ const igdl = async (m, sock) => {
     await m.React("⏳");
 
     // ✅ Using API (no login required)
-    const api = `https://api.vreden.my.id/api/igdl?url=${encodeURIComponent(url)}`;
+    const api = `https://api.davidcyriltech.my.id/instagram?url=${encodeURIComponent(url)}`;
     const { data } = await axios.get(api);
 
     if (!data || !data.result || data.result.length === 0) {
