@@ -1,43 +1,46 @@
-import config from '../config.cjs';
+import config from "../config.cjs";
 
-const tagAll = async (m, gss) => {
+const tagall = async (m, sock) => {
+  const prefix = config.PREFIX || ".";
+  const cmd = m.body.startsWith(prefix)
+    ? m.body.slice(prefix.length).split(" ")[0].toLowerCase()
+    : "";
+  if (cmd !== "tagall") return;
+
   try {
-    const prefix = config.PREFIX || '.';
-
-    const body = m.body || m.message?.conversation || m.text || '';
-    const isCmd = body.startsWith(prefix);
-    const cmd = isCmd ? body.slice(prefix.length).split(' ')[0].toLowerCase() : '';
-    const text = isCmd ? body.slice(prefix.length + cmd.length).trim() : '';
-
-    if (cmd !== 'tagall') return;
-
-    // Group check
     if (!m.isGroup) {
-      return gss.sendMessage(m.chat, { text: '❌ This command only works in groups.' }, { quoted: m });
+      return await m.reply("❌ This command only works in groups!");
     }
 
-    // Get group participants
-    const groupMetadata = await gss.groupMetadata(m.chat);
-    const participants = groupMetadata.participants || [];
+    await m.React("📢");
 
-    const sender = m.sender || '';
-    let messageText = `*TAGGED BY:* @${sender.split("@")[0]}\n\n*MESSAGE:* ${text || "No message"}\n\n`;
+    // fetch group metadata
+    const metadata = await sock.groupMetadata(m.from);
+    const participants = metadata.participants || [];
 
-    for (let mem of participants) {
-      messageText += `@${mem.id.split("@")[0]}\n`;
-    }
+    const mentions = participants.map((p) => p.id);
+    const listText = participants
+      .map((p, i) => `${i + 1}. @${p.id.split("@")[0]}`)
+      .join("\n");
 
-    await gss.sendMessage(
-      m.chat,
+    const message = `
+*📢 TAG ALL MEMBERS 📢*
+
+${listText}
+    `.trim();
+
+    await sock.sendMessage(
+      m.from,
       {
-        text: messageText,
-        mentions: participants.map((p) => p.id),
+        text: message,
+        mentions,
       },
       { quoted: m }
     );
   } catch (err) {
-    console.error('❌ Error in tagAll:', err);
+    console.error("❌ Error in .tagall command:", err.message);
+    await m.reply("❌ Failed to tag all members.");
   }
 };
 
-export default tagAll;
+export default tagall;
