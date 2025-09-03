@@ -1,65 +1,55 @@
-import config from '../config.cjs';
+import config from "../config.cjs";
 
-const kickAll = async (m, gss) => {
+const kickall = async (m, sock) => {
+  const prefix = config.PREFIX || ".";
+  const body = m.body || "";
+  const args = body.startsWith(prefix) ? body.slice(prefix.length).trim().split(/ +/) : [];
+  const cmd = args.shift()?.toLowerCase();
+
+  if (cmd !== "kickall") return;
+
   try {
-    const botNumber = await gss.decodeJid(gss.user.id);
-    const prefix = config.PREFIX;
-    const cmd = m.body.startsWith(prefix) ? m.body.slice(prefix.length).split(' ')[0].toLowerCase() : '';
-
-    if (cmd !== 'kickall') return;
-    if (!m.isGroup) return m.reply("🚫 *GROUP ONLY COMMAND*\n\nThis command works only in groups.");
-
-    const groupMetadata = await gss.groupMetadata(m.from);
-    const participants = groupMetadata.participants;
-    const botAdmin = participants.find(p => p.id === botNumber)?.admin;
-    const senderAdmin = participants.find(p => p.id === m.sender)?.admin;
-
-    if (!botAdmin) return m.reply("❌ *BOT MUST BE ADMIN*");
-    if (!senderAdmin) return m.reply("⚠️ *YOU MUST BE AN ADMIN TO EXECUTE THIS*");
-
-    const usersToKick = participants
-      .filter(p => !p.admin) // Exclude all admins
-      .map(p => p.id);
-
-    if (usersToKick.length === 0) {
-      return m.reply("✅ *NO NON-ADMIN MEMBERS TO KICK*");
+    if (!m.isGroup) {
+      return await m.reply("❌ This command only works in groups!");
     }
 
-    await gss.groupParticipantsUpdate(m.from, usersToKick, 'remove')
-      .then(async () => {
-        const mentionsList = usersToKick.map(user => `@${user.split("@")[0]}`);
+    const metadata = await sock.groupMetadata(m.from);
+    const participants = metadata.participants || [];
 
-        const styledMessage = `
-╔═════ ⌬ 𝗞𝗜𝗖𝗞 𝗢𝗣𝗘𝗥𝗔𝗧𝗜𝗢𝗡
-║ 📍 *Group:* ${groupMetadata.subject}
-║ 👤 *Kicked:* ${mentionsList.length} members
-╚═══════════════════════
-🚷 ${mentionsList.join(', ')} 
-🛡️ *Removed successfully!*`;
+    // check if user is admin/owner
+    const isAdmin = participants.some(
+      (p) => p.id === m.sender && (p.admin === "admin" || p.admin === "superadmin")
+    );
+    if (!isAdmin && m.sender !== config.OWNER_NUMBER + "@s.whatsapp.net") {
+      return await m.reply("❌ Only group admins or bot owner can use this command!");
+    }
 
-        await gss.sendMessage(m.from, {
-          text: styledMessage,
-          mentions: usersToKick,
-          contextInfo: {
-            forwardingScore: 999,
-            isForwarded: true,
-            externalAdReply: {
-              title: "TREND-X",
-              body: "🔐 Kicked by system core",
-              thumbnailUrl: "https://i.imgur.com/Qo0Qo0p.jpeg",
-              mediaType: 1,
-              renderLargerThumbnail: true,
-              sourceUrl: "https://chat.whatsapp.com/"
-            }
-          }
-        });
-      })
-      .catch(() => m.reply("❗ *FAILED TO REMOVE SOME USERS*"));
-      
-  } catch (error) {
-    console.error('Error:', error);
-    m.reply('⚠️ An unexpected error occurred during execution.');
+    await m.React("⚠️");
+    await m.reply(`🚨 Removing all members from *${metadata.subject}*...`);
+
+    for (const p of participants) {
+      // don’t kick yourself, the bot, or the owner
+      if (
+        p.id === m.sender ||
+        p.id === sock.user.id ||
+        p.id === (config.OWNER_NUMBER + "@s.whatsapp.net")
+      ) {
+        continue;
+      }
+
+      try {
+        await sock.groupParticipantsUpdate(m.from, [p.id], "remove");
+      } catch (err) {
+        console.error(`❌ Failed to kick ${p.id}:`, err.message);
+      }
+    }
+
+    await m.React("✅");
+    await m.reply("✅ All members have been removed.");
+  } catch (err) {
+    console.error("❌ Error in .kickall command:", err.message);
+    await m.reply("❌ Failed to kick all members.");
   }
 };
 
-export default kickAll;
+export default kickall;
