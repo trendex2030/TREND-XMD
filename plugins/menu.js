@@ -7,7 +7,7 @@ const menu = async (m, sock) => {
 
   if (cmd === "menu") {
     const start = new Date().getTime();
-    await m.React('✨');
+    await m.React('🪀');
     const end = new Date().getTime();
     const responseTime = ((end - start) / 1000).toFixed(2);
 
@@ -29,8 +29,8 @@ const menu = async (m, sock) => {
     }
 
     const menuText = `
-╭─── 𝙏𝙍𝙀𝙉𝘿-𝙓 ──────
-│ 🤖 ʙᴏᴛ : *TREND-X*
+┏▣ ─── 𝙏𝙍𝙀𝙉𝘿-𝙓 ──────
+│   𓅓 ʙᴏᴛ : *TREND-X*
 │ ⏱️ ʀᴜɴᴛɪᴍᴇ : ${uptime}
 │ ⚡ sᴘᴇᴇᴅ : ${responseTime}s
 │ 🌐 ᴍᴏᴅᴇ : public
@@ -38,7 +38,7 @@ const menu = async (m, sock) => {
 │ 𓅓 ᴏᴡɴᴇʀ : TREND-X
 │ 🛠️ ᴅᴇᴠ : *ᴘᴏᴘᴋɪᴅ*
 │ 🧪 ᴠᴇʀ : *2.0.0*
-╰───────────────⭓
+┗▣───────────────⭓
 ┏▣ ━━━━━━━━━━━━━━━━━━
 │𓅓 *WE LEAD OTHERS COPY* 𓅓
 ┗▣━━━━━━━━━━━━━━━━━━
