@@ -1,48 +1,48 @@
 import axios from "axios";
 import config from "../config.cjs";
 
-const instagram = async (m, Matrix) => {
-  const prefix = config.PREFIX;
-  const cmd = m.body.startsWith(prefix) ? m.body.slice(prefix.length).split(" ")[0].toLowerCase() : "";
-  const query = m.body.slice(prefix.length + cmd.length).trim();
+const igdl = async (m, sock) => {
+  const prefix = config.PREFIX || ".";
+  const body = m.body || "";
+  const args = body.startsWith(prefix) ? body.slice(prefix.length).trim().split(/ +/) : [];
+  const cmd = args.shift()?.toLowerCase();
 
-  if (!["ig", "insta", "instagram"].includes(cmd)) return;
-
-  if (!query || !query.startsWith("http")) {
-    return Matrix.sendMessage(m.from, { text: "❌ *Usage:* `.ig <Instagram URL>`" }, { quoted: m });
-  }
+  if (cmd !== "ig" && cmd !== "instagram" && cmd !== "reel") return;
 
   try {
-    await Matrix.sendMessage(m.from, { react: { text: "⏳", key: m.key } });
-
-    const { data } = await axios.get(`https://api.davidcyriltech.my.id/instagram?url=${query}`);
-
-    if (!data.success || !data.downloadUrl) {
-      return Matrix.sendMessage(m.from, { text: "⚠️ *Failed to fetch Instagram video. Please try again.*" }, { quoted: m });
+    if (!args[0]) {
+      return await m.reply(`📸 Usage: *${prefix}${cmd} <instagram reel url>*`);
     }
 
-    await Matrix.sendMessage(m.from, {
-      video: { url: data.downloadUrl },
-      mimetype: "video/mp4",
-      caption: "📥 *Powered By TREND-X ✅*",
-      contextInfo: {
-        mentionedJid: [m.sender],
-        forwardingScore: 999,
-        isForwarded: true,
-        forwardedNewsletterMessageInfo: {
-          newsletterJid: "120363401765045963@newsletter",
-          newsletterName: "TREND-X",
-          serverMessageId: 143,
-        },
+    const url = args[0];
+
+    await m.React("⏳");
+
+    // ✅ Using API (no login required)
+    const api = `https://api.vreden.my.id/api/igdl?url=${encodeURIComponent(url)}`;
+    const { data } = await axios.get(api);
+
+    if (!data || !data.result || data.result.length === 0) {
+      await m.reply("❌ Failed to fetch video. Make sure the link is correct and public.");
+      return;
+    }
+
+    const videoUrl = data.result[0].url;
+
+    await sock.sendMessage(
+      m.from,
+      {
+        video: { url: videoUrl },
+        caption: `✅ *Instagram Reel Downloaded*\n\n🔗 ${url}`,
       },
-    }, { quoted: m });
+      { quoted: m }
+    );
 
-    await Matrix.sendMessage(m.from, { react: { text: "✅", key: m.key } });
-
-  } catch (error) {
-    console.error("Instagram Downloader Error:", error);
-    Matrix.sendMessage(m.from, { text: "❌ *An error occurred while processing your request. Please try again later.*" }, { quoted: m });
+    await m.React("✅");
+  } catch (err) {
+    console.error("❌ Error in .ig command:", err.message);
+    await m.reply("❌ Failed to download Instagram Reel.");
   }
 };
 
-export default instagram;
+export default igdl;
