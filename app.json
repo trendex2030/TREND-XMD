@@ -60,7 +60,7 @@
     "OWNER_NAME": {
       "description": "set owner name",
       "required": false,
-      "value": "Njabulo Jb"
+      "value": "trendex"
     },
     "OWNER_NUMBER": {
       "description": "set your owner number",
