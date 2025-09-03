@@ -1,5 +1,5 @@
 /*══════════════════════════════════════════════╗
-║     🔓 POPKID XMD - VIEW ONCE UNLOCKER ⚔️      ║
+║     🔓 TRENDEX - VIEW ONCE UNLOCKER ⚔️      ║
 ╠══════════════════════════════════════════════╝
 ║  🔁 Recovers view-once media with forwarding
 ║  🔐 Owner-only for vv2 & vv3
@@ -105,7 +105,7 @@ const OwnerCmd = async (m, Matrix) => {
   }
 };
 
-// 🧑‍💻 Coded by popkid
+// 🧑‍💻 Coded by TRENDEX
 export default OwnerCmd;
 
 /*══════════════════════════════════════════════╗
