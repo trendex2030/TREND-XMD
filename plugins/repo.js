@@ -11,7 +11,7 @@ const repo = async (m, sock) => {
   try {
     await m.React("📁");
 
-    const owner = config.OWNER_NAME || "Popkid";
+    const owner = config.OWNER_NAME || "TRENDEX";
     const githubRepo = "https://github.com/trendex2030/TREND-XMD";
     const apiUrl = "https://api.github.com/repos/trendex2030/TREND-XMD";
     const imageUrl = "https://files.catbox.moe/j2h8dg.jpg";
@@ -20,18 +20,17 @@ const repo = async (m, sock) => {
     const { data } = await axios.get(apiUrl);
 
     const repoText = `
-*🔹 BOT REPOSITORY 🔹*
-
-🔸 *Name:* ${data.name}
-🔸 *Stars:* ${data.stargazers_count}
-🔸 *Forks:* ${data.forks_count}
-🔸 *GitHub Link:* ${githubRepo}
-│ 
-│ 👑 *Owner:* ${owner}
-│ ⚙️ *Prefix:* ${prefix}
-│ 🧩 *Version:* 2.0
-│ 📌 *Type:* Public • Open Source
-└───────────◇
+┏▣ *🔹 BOT REPOSITORY 🔹*
+│
+│🔸 *Name:* ${data.name}
+│🔸 *Stars:* ${data.stargazers_count}
+│🔸 *Forks:* ${data.forks_count}
+│🔸 *GitHub Link:* ${githubRepo}
+│🔸 *Owner:* ${owner}
+│🔸 *Prefix:* ${prefix}
+│🔸 *Version:* 2.0
+│🔸 *Type:* Public • Open Source
+┗▣
 
 @${m.sender.split("@")[0]} 👋, Don't forget to star and fork my repository!
 💡 Report bugs using: *${prefix}report [your bug here]*
@@ -57,10 +56,10 @@ const repo = async (m, sock) => {
 
     // 🎵 Random song
     const songUrls = [
-      "https://files.catbox.moe/2b33jv.mp3",
-      "https://files.catbox.moe/0cbqfa.mp3",
-      "https://files.catbox.moe/j4ids2.mp3",
-      "https://files.catbox.moe/vv2qla.mp3",
+      "",
+      "",
+      "",
+      "",
     ];
     const randomSong = songUrls[Math.floor(Math.random() * songUrls.length)];
 
