@@ -4,31 +4,38 @@ let autobioInterval;
 
 export default {
   name: "autobio",
-  description: "Automatically updates WhatsApp bio in real-time",
-  async execute({ m, sock, args }) {
-    const command = args[0] ? args[0].toLowerCase() : '';
+  command: ["autobio"],
+  async execute(m, sock, args) {
+    const option = (args[0] || "").toLowerCase();
 
-    if (command === "on") {
-      if (autobioEnabled) return m.reply("✅ Real-time Autobio is already ON");
+    if (option === "on") {
+      if (autobioEnabled) return m.reply("✅ Autobio is already running");
       autobioEnabled = true;
-      m.reply("✅ Real-time Autobio is now ON");
+      m.reply("✅ Real-time autobio started");
+
       autobioInterval = setInterval(async () => {
         try {
           const now = new Date();
-          const timeString = now.toLocaleTimeString('en-GB', { hour12: false });
-          const dateString = now.toLocaleDateString('en-GB');
+          const timeString = now.toLocaleTimeString("en-GB", { hour12: false });
+          const dateString = now.toLocaleDateString("en-GB");
           const bio = `🕒 ${dateString} ${timeString} | ⚡ TREND-XMD Bot`;
+
           await sock.updateProfileStatus(bio);
-        } catch (err) {
-          console.error("❌ Error updating bio:", err);
+          console.log("🔄 Autobio updated:", bio);
+        } catch (e) {
+          console.error("❌ Autobio error:", e);
         }
-      }, 1000);
-    } else if (command === "off") {
-      if (!autobioEnabled) return m.reply("⛔ Autobio is already OFF");
-      autobioEnabled = false;
+      }, 60000); // updates every 1 minute
+    }
+
+    else if (option === "off") {
+      if (!autobioEnabled) return m.reply("⛔ Autobio is already off");
       clearInterval(autobioInterval);
-      m.reply("⛔ Real-time Autobio stopped");
-    } else {
+      autobioEnabled = false;
+      m.reply("⛔ Autobio stopped");
+    }
+
+    else {
       m.reply("Usage: autobio on / autobio off");
     }
   }
