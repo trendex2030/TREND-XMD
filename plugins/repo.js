@@ -11,14 +11,15 @@ const repo = async (m, sock) => {
     const owner = config.OWNER_NAME || 'Popkid';
     const githubRepo = 'https://github.com/trendex2030/TREND-XMD';
     const imageUrl = 'https://files.catbox.moe/j2h8dg.jpg'; 
+    const { data } = await axios.get('https://github.com/trendex2030/TREND-XMD');
 
     const repoText = `
-╭───────────────⭓
-│  📦 *TREND-X ʀᴇᴘᴏ*
-╰───────────────⭓
-┌───────────◇
-│ 🔗 *GitHub Repo:*
-│ ${githubRepo}
+    *🔹 BOT REPOSITORY 🔹*
+    
+🔸 *Name:* ${data.name}
+🔸 *Stars:* ${data.stargazers_count}
+🔸 *Forks:* ${data.forks_count}
+🔸 *GitHub Link:* https://github.com/trendex2030/TREND-XMD
 │ 
 │ 👑 *Owner:* ${owner}
 │ ⚙️ *Prefix:* ${prefix}
@@ -26,7 +27,7 @@ const repo = async (m, sock) => {
 │ 📌 *Type:* Public • Open Source
 └───────────◇
 
-🔔 Feel free to star ⭐, fork 🍴 or contribute!
+@${m.sender.split("@")[0]}👋, Don't forget to star and fork my repository!`;
 💡 Report bugs using: *${prefix}report [your bug here]*
 `.trim();
 
