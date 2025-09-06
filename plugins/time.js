@@ -1,7 +1,7 @@
 // plugins/time.js
 import moment from 'moment-timezone';
 import SunCalc from 'suncalc';
-import { getBuffer } from '../lib/Serializer.js'; // adjust if your helper path is different
+import { getBuffer } from '../lib/myfunc.cjs'; // adjust if your helper path is different
 
 export default {
     name: 'time', // command name
