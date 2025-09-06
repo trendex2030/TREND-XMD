@@ -1,44 +1,29 @@
 import config from '../config.cjs';
 
-const tagAll = async (m, gss) => {
-  try {
-    const prefix = config.PREFIX || '.';
+const tagAll = async (m, Matrix, { participants, isAdmins, isGroupOwner, isCreator, isBotAdmins }) => {
+  const prefix = config.PREFIX;
+  const cmd = m.body.startsWith(prefix)
+    ? m.body.slice(prefix.length).split(' ')[0].toLowerCase()
+    : '';
 
-    // Get text from the message
-    const body = m.body || m.message?.conversation || m.text || '';
-    const isCmd = body.startsWith(prefix);
-    const cmd = isCmd ? body.slice(prefix.length).split(' ')[0].toLowerCase() : '';
-    const text = isCmd ? body.slice(prefix.length + cmd.length).trim() : '';
+  if (cmd === "tagall") {
+    if (!m.isGroup) return m.reply("*❌ This command only works in groups.*");
+    if (!isAdmins && !isGroupOwner && !isCreator) return m.reply("*❌ Only admins can use this command.*");
+    if (!isBotAdmins) return m.reply("*❌ I must be an admin to use this.*");
 
-    if (cmd !== 'tagall') return;
-
-    // Ensure it's a group
-    if (!m.isGroup) {
-      return gss.sendMessage(m.chat, { text: '❌ This command only works in groups.' }, { quoted: m });
-    }
-
-    // Get group metadata
-    const groupMetadata = await gss.groupMetadata(m.chat);
-    const participants = groupMetadata.participants || [];
-
-    const sender = m.sender || '';
-    let messageText = `*TAGGED BY:* @${sender.split("@")[0]}\n\n*MESSAGE:* ${text || "No message"}\n\n`;
+    let me = m.sender;
+    let q = m.text.split(' ').slice(1).join(' ').trim(); // Message after command
+    let teks = `*👥 TAGGED BY:* @${me.split("@")[0]}\n\n*📩 MESSAGE:* ${q || "No message"}\n\n`;
 
     for (let mem of participants) {
-      messageText += `@${mem.id.split("@")[0]}\n`;
+      teks += `@${mem.id.split("@")[0]}\n`;
     }
 
-    await gss.sendMessage(
+    await Matrix.sendMessage(
       m.chat,
-      {
-        text: messageText,
-        mentions: participants.map((p) => p.id),
-      },
+      { text: teks, mentions: participants.map((a) => a.id) },
       { quoted: m }
     );
-
-  } catch (err) {
-    console.error('❌ Error in tagAll:', err);
   }
 };
 
