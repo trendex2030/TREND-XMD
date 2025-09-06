@@ -181,18 +181,9 @@ export default async function connHandler(conn, m, chatUpdate, mek, store) {
 
     // your switch/case for commands comes here (menu, vinic, etc.)
     // ...
-  
-function getRandomImage() {
-const randomIndex = Math.floor(Math.random() * cina.length)
-return cina[randomIndex]
-}
-const cinahitam = getRandomImage()
-async function pickRandom(list) {
-return list[Math.floor(Math.random() * list.length)]
-}
-const Usage = prefix + command
-const more = String.fromCharCode(8206)
-const readmore = more.repeat(4001)
+  } catch (e) {
+    console.error(e)
+  }
 //function
 const { smsg, sendGmail, formatSize, isUrl, generateMessageTag, getBuffer, getSizeMedia, runtime, fetchJson, sleep, getRandom } = require('./lib/myfunction')
 const reaction = async (jidss, emoji) => {
@@ -3601,3 +3592,4 @@ console.log('\x1b[0;32m'+__filename+' \x1b[1;32mupdated!\x1b[0m')
 delete require.cache[file]
 require(file)
 })
+export default menu;
