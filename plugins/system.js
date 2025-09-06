@@ -38,361 +38,130 @@ import {
   getRandom
 } from './lib/myfunction.js'
 
-export default async function connHandler(conn, m, chatUpdate, mek, store) {
-  try {
-    const body = (
-      m.mtype === 'conversation'
-        ? m.message.conversation
-        : m.mtype === 'imageMessage'
-        ? m.message.imageMessage.caption
-        : m.mtype === 'videoMessage'
-        ? m.message.videoMessage.caption
-        : m.mtype === 'extendedTextMessage'
-        ? m.message.extendedTextMessage.text
-        : m.mtype === 'buttonsResponseMessage'
-        ? m.message.buttonsResponseMessage.selectedButtonId
-        : m.mtype === 'listResponseMessage'
-        ? m.message.listResponseMessage.singleSelectReply.selectedRowId
-        : m.mtype === 'templateButtonReplyMessage'
-        ? m.message.templateButtonReplyMessage.selectedId
-        : m.mtype === 'interactiveResponseMessage'
-        ? JSON.parse(m.msg.nativeFlowResponseMessage.paramsJson).id
-        : m.mtype === 'templateButtonReplyMessage'
-        ? m.msg.selectedId
-        : m.mtype === 'messageContextInfo'
-        ? m.message.buttonsResponseMessage?.selectedButtonId ||
-          m.message.listResponseMessage?.singleSelectReply.selectedRowId ||
-          m.text
-        : ''
-    )
+export default {
+  command: ['menu', 'vinic'],
+  run: async (conn, m, args) => {
+    try {
+      const from = m.key.remoteJid
+      const pushname = m.pushName || 'No Name'
+      const prefix = '.'
 
-    const budy = typeof m.text === 'string' ? m.text : ''
-    var textmessage =
-      m.mtype == 'listResponseMessage'
-        ? m.message.listResponseMessage.singleSelectReply.selectedRowId
-        : m.mtype == 'messageContextInfo'
-        ? m.message.buttonsResponseMessage?.selectedButtonId ||
-          m.message.listResponseMessage?.singleSelectReply.selectedRowId ||
-          budy
-        : ''
-    const content = JSON.stringify(mek.message)
-    const type = Object.keys(mek.message)[0]
-    if (m && type == 'protocolMessage')
-      conn.ev.emit('message.delete', m.message.protocolMessage.key)
+      // time greeting
+      const time = moment().tz('Asia/Jakarta').format('HH:mm:ss')
+      let ucapanWaktu
+      if (time >= '19:00:00' && time < '23:59:00') {
+        ucapanWaktu = '🌃 Selamat Malam'
+      } else if (time >= '15:00:00' && time < '19:00:00') {
+        ucapanWaktu = '🌄 Selamat Sore'
+      } else if (time >= '11:00:00' && time < '15:00:00') {
+        ucapanWaktu = '🏞️ Selamat Siang'
+      } else if (time >= '06:00:00' && time < '11:00:00') {
+        ucapanWaktu = '🏙️ Selamat Pagi'
+      } else {
+        ucapanWaktu = '🌆 Selamat Subuh'
+      }
 
-    const { sender } = m
-    const from = m.key.remoteJid
-    const isGroup = from.endsWith('@g.us')
-
-    // database
-    const kontributor = JSON.parse(
-      fs.readFileSync('./start/lib/database/owner.json')
-    )
-    const botNumber = await conn.decodeJid(conn.user.id)
-    const Access = [global.owner, ...kontributor, ...global.owner]
-      .map(v => {
-        const str = typeof v === 'string' ? v : String(v)
-        return str.replace(/[^0-9]/g, '') + '@s.whatsapp.net'
-      })
-      .includes(m.sender)
-      ? true
-      : m.isChecking
-      ? true
-      : false
-
-    const prefa = ['', '!', '.', ',', '🐤', '👐🏽']
-    const prefix = /^[°zZ#$@+,.?=''():√%!¢£¥€π¤ΠΦ&><™©®Δ^]/.test(body)
-      ? body.match(/^[°zZ#$@+,.?=''():√%¢£¥€π¤ΠΦ&><!™©®Δ^]/gi)
-      : ''
-    const isCmd = body.startsWith(prefix)
-    const command = body
-      .replace(prefix, '')
-      .trim()
-      .split(/ +/)
-      .shift()
-      .toLowerCase()
-    const args = body.trim().split(/ +/).slice(1)
-    const pushname = m.pushName || 'No Name'
-    const text = (q = args.join(' '))
-    const fatkuns = m.quoted || m
-    const quoted =
-      fatkuns.mtype === 'buttonsMessage'
-        ? fatkuns[Object.keys(fatkuns)[1]]
-        : fatkuns.mtype === 'templateMessage'
-        ? fatkuns.hydratedTemplate[Object.keys(fatkuns.hydratedTemplate)[1]]
-        : fatkuns.mtype === 'product'
-        ? fatkuns[Object.keys(fatkuns)[0]]
-        : m.quoted
-        ? m.quoted
-        : m
-    const qmsg = quoted.msg || quoted
-    const mime = qmsg.mimetype || ''
-    const isImage = type === 'imageMessage'
-    const isVideo = type === 'videoMessage'
-    const isAudio = type === 'audioMessage'
-    const isMedia = /image|video|sticker|audio/.test(mime)
-    const isQuotedImage =
-      type === 'extendedTextMessage' && content.includes('imageMessage')
-    const isQuotedVideo =
-      type === 'extendedTextMessage' && content.includes('videoMessage')
-    const isQuotedSticker =
-      type === 'extendedTextMessage' && content.includes('stickerMessage')
-    const isQuotedAudio =
-      type === 'extendedTextMessage' && content.includes('audioMessage')
-    const isQuotedTag =
-      type === 'extendedTextMessage' && content.includes('mentionedJid')
-    const isQuotedReply =
-      type === 'extendedTextMessage' && content.includes('Message')
-    const isQuotedText =
-      type === 'extendedTextMessage' && content.includes('conversation')
-    const isQuotedViewOnce =
-      type === 'extendedTextMessage' && content.includes('viewOnceMessageV2')
-
-    // group
-    const groupMetadata = isGroup
-      ? await conn.groupMetadata(m.chat).catch(() => {})
-      : ''
-    const groupOwner = isGroup ? groupMetadata.owner : ''
-    const groupName = isGroup ? groupMetadata.subject : ''
-    const participants = isGroup ? await groupMetadata.participants : ''
-    const groupAdmins = isGroup
-      ? participants.filter(v => v.admin !== null).map(v => v.id)
-      : ''
-    const groupMembers = isGroup ? groupMetadata.participants : ''
-    const isGroupAdmins = isGroup ? groupAdmins.includes(m.sender) : false
-    const isBotGroupAdmins = isGroup ? groupAdmins.includes(botNumber) : false
-    const isBotAdmins = isGroup ? groupAdmins.includes(botNumber) : false
-    const isAdmins = isGroup ? groupAdmins.includes(m.sender) : false
-
-    // time
-    const time = moment().tz('Asia/Jakarta').format('HH:mm:ss')
-    let ucapanWaktu
-    if (time >= '19:00:00' && time < '23:59:00') {
-      ucapanWaktu = '🌃𝐒𝐞𝐥𝐚𝐦𝐚𝐭 𝐌𝐚𝐥𝐚𝐦'
-    } else if (time >= '15:00:00' && time < '19:00:00') {
-      ucapanWaktu = '🌄𝐒𝐞𝐥𝐚𝐦𝐚𝐭 𝐒𝐨𝐫𝐞'
-    } else if (time >= '11:00:00' && time < '15:00:00') {
-      ucapanWaktu = '🏞️𝐒𝐞𝐥𝐚𝐦𝐚𝐭 𝐒𝐢𝐚𝐧𝐠'
-    } else if (time >= '06:00:00' && time < '11:00:00') {
-      ucapanWaktu = '🏙️𝐒𝐞𝐥𝐚𝐦𝐚𝐭 𝐏𝐚𝐠𝐢'
-    } else {
-      ucapanWaktu = '🌆𝐒𝐞𝐥𝐚𝐦𝐚𝐭 𝐒𝐮𝐛𝐮𝐡'
-    }
-
-    // your switch/case for commands comes here (menu, vinic, etc.)
-    // ...
-  } catch (e) {
-    console.error(e)
-  }
-//function
-const { smsg, sendGmail, formatSize, isUrl, generateMessageTag, getBuffer, getSizeMedia, runtime, fetchJson, sleep, getRandom } = require('./lib/myfunction')
-const reaction = async (jidss, emoji) => {
-conn.sendMessage(jidss, { react: { text: emoji, key: m.key } })
-}
-if (m.message) {
-if (isCmd && !m.isGroup) {
-console.log(chalk.black(chalk.bgHex('#ff5e78').bold(`\n🦅 ${ucapanWaktu}🦅`)))
-console.log(lolcatjs.fromString(`VINIC-XMD`))
-console.log(chalk.black(chalk.bgHex('#FF31FF15')(`
-║➳ DATE: ${new Date().toLocaleString()}
-║➳ MESSAGE: ${m.body || m.mtype}
-║➳ SENDERNAME: ${pushname}
-║➳ JIDS: ${m.sender}`
-)
-));
-} else if (m.isGroup) {
-console.log(chalk.black(chalk.bgHex('#ff5e78').bold(`\n🌟 ${ucapanWaktu} 🌟`)))
-console.log(chalk.white(chalk.bgHex('#4a69bd').bold('VINIC-XMD')))
-console.log(chalk.black(chalk.bgHex('#FF31FF15')(`DATE: ${new Date().toLocaleString()}
-║➳ Message: ${m.body || m.mtype}
-║➳ Sendername: ${pushname}
-║➳ Jids: ${m.sender}
-║➳ From: ${groupName}`
-))
-);
-}
-}
-if (autoread) {
-            conn.readMessages([m.key])
-        }
-        
-        if (global.autoTyping) {
-        conn.sendPresenceUpdate('composing', from)
-        }
-
-        if (global.autoRecording) {
-        conn.sendPresenceUpdate('recording', from)
-        }
-        conn.sendPresenceUpdate('uavailable', from)
-                if (autobio) {
-            conn.updateProfileStatus(`24/7 𝗩𝗶𝗻𝗶𝗰-𝗫𝗺𝗱 𝗼𝗻𝗹𝗶𝗻𝗲 𝗽𝗼𝘄𝗲𝗿𝗲𝗱 𝗯𝘆 ༒𝗞𝗲𝘃𝗶𝗻 𝘁𝗲𝗰𝗵༒`).catch(_ => _)
-        }
-
-
-
-
-
-
-switch (command) {
-case 'menu':
-case 'vinic': {
-  // Define menu sections for organization
-  const menuSections = {
-    header: {
-      title: '☘ 𝗞𝗘𝗩𝗜𝗡 𝗧𝗘𝗖𝗛 ☘',
-      content: [
-        `👤 ᴏᴡɴᴇʀ: ☘ ᴋᴇʟᴠɪɴ ᴛᴇᴄʜ ☘`,
-        `👤 ᴜsᴇʀ: ${pushname || 'Unknown'}`,
-        `🤖 ʙᴏᴛɴᴀᴍᴇ: ᴠɪɴɪᴄ xᴍᴅ`,
-        `🌍 ᴍᴏᴅᴇ: ${conn.public ? 'ᴘᴜʙʟɪᴄ' : 'ᴘʀɪᴠᴀᴛᴇ'}`,
-        `🛠️ ᴘʀᴇғɪx: [ ${prefix} ]`,
-        `📈 ᴄᴍᴅs: 100+`, // Replace with actual command count if available
-        `🧪 ᴠᴇʀsɪᴏɴ: 1.0.0-beta`,
-      ],
-    },
-    bug: {
-      title: '> 𝗕𝗨𝗚 𝗠𝗘𝗡𝗨 ',
-      commands: [
-        '𝖨𝗇𝗏𝗂𝗌', '𝖷𝖼𝗋𝖺𝗌𝗁', '𝖢𝗋𝖺𝗌𝗁', '𝖣𝖾𝗅𝖺𝗒',
-        '𝙲𝚛𝚊𝚡', '𝖣𝖾𝗅𝖺𝗒𝖼𝗈𝗆𝖻𝗈', '𝖣𝖺𝗋𝗄', '𝖣𝗂𝗆', 'Vinic-crash',
-      ],
-    },
-    owner: {
-      title: '> 𝗢𝗪𝗡𝗘𝗥 𝗠𝗘𝗡𝗨  ',
-      commands: [
-        '𝖠𝖽𝖽𝗉𝗋𝖾𝗆 <number>', '𝖣𝖾𝗅𝗉𝗋𝖾𝗆 <number>', '𝖯𝗎𝖻𝗅𝗂𝖼', 'private',
-        '𝙸𝚍𝚌𝚑', '𝙲𝚛𝚎𝚊𝚝𝚎𝚌𝚑',
-        'antidelete', 'delete', 'setpp', 'lastseen', 'groupid', 'reportbug',
-        'listblocked', 'online', 'join', 'leave', 'setbio', 'reqeust', 'block', 'toviewonce', 'autoviewstatus', 'unblock', 'unblockall',
-        'anticall', 'antibug', 'vv', 'idch','autorecording', 'autotyping', 'getpp',
-      ],
-    },
-    group: {
-      title: '> 𝗚𝗥𝗢𝗨𝗣 𝗠𝗘𝗡𝗨  ',
-      commands: [
-        '𝖧𝗂𝖽𝖾𝗍𝖺𝗀', '𝖪𝗂𝖼𝗄', '𝖱𝖾𝗌𝖾𝗍𝗅𝗂𝗇𝗄', 'linkgc', 'checkchan',
-        'antilink', 'listonline', 'add', 'listactive', 'listinactive', 'close',
-        'open', 'kick', 'closetime', 'disappear', 'opentime', 'poll', 'totalmembers', 'mediatag', 'getgrouppp', 'antilink', 'tagall', 'tagadmin', 'setgroupname', 'delgrouppp', 'invite', 'editinfo', 'promote', 'demote', 'setdisc', 
-      ],
-    },
-    download: {
-      title: '> 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗 𝗠𝗘𝗡𝗨 ',
-      commands: ['play', 'play2', 'song', 'gitclone', 'mediafire',  'ytmp4', 'apk',  'tiktok', 'tiktok2', 'facebook'],
-    },
-    convert: {
-      title: '> 𝗖𝗢𝗡𝗩𝗘𝗥𝗧 𝗠𝗘𝗡𝗨 ',
-      commands: ['toaudio', 'toimage', 'url', 'tovideo', 'sticker'],
-    },
-    cmdTool: {
-      title: '> 𝗖𝗠𝗗 𝗧𝗢𝗢𝗟 𝗠𝗘𝗡𝗨 ',
-      commands: ['ping', 'repo', 'botstatus', 'botinfo', 'sc', 'serverinfo', 'alive'],
-    },
-    other: {
-      title: '> 𝗢𝗧𝗛𝗘𝗥 𝗠𝗘𝗡𝗨  ',
-      commands: ['time', 'calculate', 'sticker', 'owner', 'dev', 'fliptext', 'say', 'getdevice', 'getabout', 'sswebtab'],
-    },
-    ephoto: {
-      title: '> 𝗘𝗣𝗛𝗢𝗧𝗢𝟯𝟲𝟬 𝗠𝗔𝗞𝗘𝗥 ',
-      commands: ['blackpinklogo', 'blackpinkstyle', 'glossysilver', 'glitchtext', 'flux', 'dragonball'],
-    },
-    search: {
-      title: '> 𝗦𝗘𝗔𝗥𝗖𝗛 𝗠𝗘𝗡𝗨 ',
-      commands: ['lyrics', 'chord', 'weather', 'movie', 'shazam'],
-    },
-    fun: {
-      title: '> 𝗙𝗨𝗡 𝗠𝗘𝗡𝗨 ',
-      commands: ['dare', 'Quotes', 'truth', 'compatibility', 'compliment', 'hack', 'jokes'],
-    },
-    religion: {
-      title: '> 𝗥𝗘𝗟𝗜𝗚𝗜𝗢𝗡 𝗠𝗘𝗡𝗨 ',
-      commands: ['Bible', 'Quran'],
-    },
-    };
-  
-
-  // Function to format the menu
-  const formatMenu = () => {
-    let menu = `╭═✦〔 🤖 ᴠɪɴɪᴄ xᴅ 〕✦═╮\n`;
-    menu += menuSections.header.content.map(line => `│ ${line}`).join('\n') + '\n';
-    menu += `╰═✦═════════════╯\n\n`;
-
-    for (const section of Object.values(menuSections).slice(1)) {
-      menu += `${section.title}\n`;
-      menu += section.commands.map(cmd => `│ ✦ ${prefix}${cmd}`).join('\n') + '\n';
-      menu += `╰─────────\n\n`;
-    }
-    menu += `> ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴋᴇʟᴠɪɴ ᴛᴇᴄʜ `;
-    return menu;
-  };
-
-  try {
-    // Send menu with image
-    await conn.sendMessage(m.chat, {
-      image: { url: 'https://files.catbox.moe/ptpl5c.jpeg' },
-      caption: formatMenu(),
-      contextInfo: {
-        mentionedJid: [m.sender],
-        forwardedNewsletterMessageInfo: {
-          newsletterName: '☘ 𝗞𝗘𝗩𝗜𝗡 𝗧𝗘𝗖𝗛 ☘',
-          newsletterJid: '120363401548261516@newsletter',
+      // menu sections
+      const menuSections = {
+        header: {
+          title: '☘ 𝗞𝗘𝗩𝗜𝗡 𝗧𝗘𝗖𝗛 ☘',
+          content: [
+            `👤 Owner: ☘ Kelvin Tech ☘`,
+            `👤 User: ${pushname}`,
+            `🤖 Botname: Vinic XMD`,
+            `🌍 Mode: ${conn.public ? 'Public' : 'Private'}`,
+            `🛠️ Prefix: [ ${prefix} ]`,
+            `📈 Cmds: 100+`,
+            `🧪 Version: 1.0.0-beta`,
+          ],
         },
-        isForwarded: true,
-        externalAdReply: {
-          showAdAttribution: true,
-          title: global.botname || 'ᴠɪɴɪᴄ xᴍᴅ',
-          body: '☘ ᴋᴇʟᴠɪɴ ᴛᴇᴄʜ ☘',
-          mediaType: 3,
-          renderLargerThumbnail: false,
-          thumbnail: cina, // Ensure 'cina' is defined or replace with valid thumbnail
-          sourceUrl: 'https://whatsapp.com/channel/0029Vb6eR1r05MUgYul6Pc2W',
+        bug: {
+          title: '> 𝗕𝗨𝗚 𝗠𝗘𝗡𝗨 ',
+          commands: ['Invis', 'Xcrash', 'Crash', 'Delay', 'Craxx', 'Delaycombo', 'Dark', 'Dim', 'Vinic-crash'],
         },
-      },
-    }, { quoted: m });
+        owner: {
+          title: '> 𝗢𝗪𝗡𝗘𝗥 𝗠𝗘𝗡𝗨',
+          commands: ['addprem', 'delprem', 'public', 'private', 'antidelete', 'delete', 'setpp', 'lastseen', 'groupid'],
+        },
+        group: {
+          title: '> 𝗚𝗥𝗢𝗨𝗣 𝗠𝗘𝗡𝗨',
+          commands: ['hidetag', 'kick', 'resetlink', 'linkgc', 'antilink', 'listonline', 'add', 'close', 'open', 'tagall'],
+        },
+        download: {
+          title: '> 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗 𝗠𝗘𝗡𝗨',
+          commands: ['play', 'play2', 'song', 'gitclone', 'mediafire', 'ytmp4', 'apk', 'tiktok', 'facebook'],
+        },
+        convert: {
+          title: '> 𝗖𝗢𝗡𝗩𝗘𝗥𝗧 𝗠𝗘𝗡𝗨',
+          commands: ['toaudio', 'toimage', 'url', 'tovideo', 'sticker'],
+        },
+        fun: {
+          title: '> 𝗙𝗨𝗡 𝗠𝗘𝗡𝗨',
+          commands: ['dare', 'quotes', 'truth', 'compatibility', 'compliment', 'hack', 'jokes'],
+        },
+        other: {
+          title: '> 𝗢𝗧𝗛𝗘𝗥 𝗠𝗘𝗡𝗨',
+          commands: ['time', 'calculate', 'sticker', 'owner', 'say', 'getdevice', 'sswebtab'],
+        },
+      }
 
-    // Send audio
-    await conn.sendMessage(m.chat, {
-      audio: { url: 'https://files.catbox.moe/jdozs7.mp3' },
-      mimetype: 'audio/mpeg',
-      ptt: true,
-    }, { quoted: m });
-  } catch (error) {
-    console.error('Error sending menu:', error);
-    await conn.sendMessage(m.chat, {
-      text: '⚠️ Error displaying menu. Please try again!',
-    }, { quoted: m });
-  }
-}
+      // format menu
+      const formatMenu = () => {
+        let menu = `╭═✦〔 🤖 VINIC XMD 〕✦═╮\n`
+        menu += menuSections.header.content.map(line => `│ ${line}`).join('\n') + '\n'
+        menu += `╰═✦═════════════╯\n\n`
+        for (const section of Object.values(menuSections).slice(1)) {
+          menu += `${section.title}\n`
+          menu += section.commands.map(cmd => `│ ✦ ${prefix}${cmd}`).join('\n') + '\n'
+          menu += `╰─────────\n\n`
+        }
+        menu += `> Powered by Kelvin Tech`
+        return menu
+      }
+
+      // send menu with image
+      await conn.sendMessage(
+        m.chat,
+        {
+          image: { url: 'https://files.catbox.moe/ptpl5c.jpeg' },
+          caption: formatMenu(),
+          contextInfo: {
+            mentionedJid: [m.sender],
+            forwardedNewsletterMessageInfo: {
+              newsletterName: '☘ KEVIN TECH ☘',
+              newsletterJid: '120363401548261516@newsletter',
+            },
+            isForwarded: true,
+            externalAdReply: {
+              showAdAttribution: true,
+              title: global.botname || 'VINIC XMD',
+              body: '☘ Kelvin Tech ☘',
+              mediaType: 3,
+              renderLargerThumbnail: false,
+              sourceUrl: 'https://whatsapp.com/channel/0029Vb6eR1r05MUgYul6Pc2W',
+            },
+          },
+        },
+        { quoted: m }
+      )
+
+      // send audio too
+      await conn.sendMessage(
+        m.chat,
+        {
+          audio: { url: 'https://files.catbox.moe/jdozs7.mp3' },
+          mimetype: 'audio/mpeg',
+          ptt: true,
+        },
+        { quoted: m }
+      )
+    } catch (e) {
+      console.error('Error in menu plugin:', e)
+      await conn.sendMessage(m.chat, { text: '⚠️ Error displaying menu. Please try again!' }, { quoted: m })
+    }
+  },
+          } 
 break;
-case "delprem":{
-  const prem = JSON.parse(fs.readFileSync("./start/lib/database/premium.json"))    
-if (!Access) return reply(mess.owner)
-if (!text) return reply(`Use ${prefix+command} number\nExample ${prefix+command} 256xxx`)
-let ya = q.replace(/[^0-9]/g, '')+`@s.whatsapp.net`
-unp = prem.indexOf(ya)
-prem.splice(unp, 1)
-fs.writeFileSync("./start/lib/database/owner.json", JSON.stringify(prem))
-reply(`*Successfully deleted${ya}as a premium user*!`)
-}
-break
-case "Vinic":{
-if(!Access) return reply(mess.owner)
-if(!text) return reply("*Example: .Vinic 2567...*")
-target = q.replace(/[^0-9]/g,'') + "@s.whatsapp.net"
-await bugLoad()
-reply(`▬▭▬▭▬▭▬▭▬▭▬▭▬\n${buggy}\n▬▭▬▭▬▭▬▭▬▭▬▭▬`)
-     
-for(let i = 0; i < 40; i++){
-await ForceCall(target)
-await ForceCall(target)
-await ForceCall(target)
-await sleep(1500)
-await ForceCall(target)
-await ForceCall(target)
-await sleep(1500)
-await ForceCall(target)
-
-}
-}
 case "addprem": {
     const prem = JSON.parse(fs.readFileSync("./start/lib/database/owner.json"))   
     if (!Access) return reply(mess.owner)
