@@ -54,7 +54,7 @@ const menu = async (m, sock) => {
 │➽ ping
 │➽ owner
 ┗▣
-┏▣ 『 *𝗢𝗪𝗡𝗘𝗥 𝗖𝗢𝗠𝗠𝗔𝗡𝗗𝗦* 』
+┏▣  『 *𝗢𝗪𝗡𝗘𝗥 𝗖𝗢𝗠𝗠𝗔𝗡𝗗𝗦* 』
 │➽ join
 │➽ autoread
 │➽ pair
@@ -92,7 +92,7 @@ const menu = async (m, sock) => {
 │➽ chatbot
 │➽ gpt
 │➽ lydia
-│➽ popkid-ai
+│➽ trend-ai
 ┗▣
 ┏▣  『 *𝗖𝗢𝗡𝗩𝗘𝗥𝗧𝗘𝗥𝗦* 』
 │➽ security
@@ -250,28 +250,16 @@ const menu = async (m, sock) => {
       }
     };
 
-    // menu image message
-    await sock.sendMessage(m.from, {
-      image: { url: profilePictureUrl },
-      caption: menuText,
-      contextInfo: newsletterContext
-    }, { quoted: m });
-
-    // 🎵 popkid random songs
-    const songUrls = [
-      '',
-      '',
-      '',
-      ''  
-    ];
-    const random = songUrls[Math.floor(Math.random() * songUrls.length)];
-
-    await sock.sendMessage(m.from, {
-      audio: { url: random },
-      mimetype: 'audio/mpeg',
-      ptt: false,
-      contextInfo: newsletterContext
-    }, { quoted: m });
+    // Send menu image safely
+    try {
+      await sock.sendMessage(m.from, {
+        image: { url: profilePictureUrl },
+        caption: menuText,
+        contextInfo: newsletterContext
+      }, { quoted: m });
+    } catch (err) {
+      console.error('Failed to send menu image:', err);
+    }
   }
 };
 
