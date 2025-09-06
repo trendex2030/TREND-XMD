@@ -1,38 +1,42 @@
 import config from '../config.cjs';
 
-const tagAll = async (m, Matrix) => {
-  const prefix = config.PREFIX;
-  const cmd = m.body.startsWith(prefix)
-    ? m.body.slice(prefix.length).split(' ')[0].toLowerCase()
-    : '';
+const tagAll = async (m, gss) => {
+  try {
+    const prefix = config.PREFIX || '.';
 
-  if (cmd === "tagall") {
-    if (!m.isGroup) return m.reply("*❌ This command only works in groups.*");
+    const body = m.body || m.message?.conversation || m.text || '';
+    const isCmd = body.startsWith(prefix);
+    const cmd = isCmd ? body.slice(prefix.length).split(' ')[0].toLowerCase() : '';
+    const text = isCmd ? body.slice(prefix.length + cmd.length).trim() : '';
 
-    // Fetch group metadata
-    const metadata = await Matrix.groupMetadata(m.chat);
-    const participants = metadata.participants || [];
+    if (cmd !== 'tagall') return;
 
-    // Optional: restrict to admins only
-    const sender = m.sender;
-    const senderData = participants.find((p) => p.id === sender);
-    const isAdmin = senderData?.admin !== null && senderData?.admin !== undefined;
-
-    if (!isAdmin) return m.reply("*❌ Only group admins can use this command.*");
-
-    // Extract custom message after command
-    let q = m.text.split(' ').slice(1).join(' ').trim();
-    let teks = `*👥 TAGGED BY:* @${sender.split("@")[0]}\n\n*📩 MESSAGE:* ${q || "No message"}\n\n`;
-
-    for (let mem of participants) {
-      teks += `@${mem.id.split("@")[0]}\n`;
+    // Group check
+    if (!m.isGroup) {
+      return gss.sendMessage(m.chat, { text: '❌ This command only works in groups.' }, { quoted: m });
     }
 
-    await Matrix.sendMessage(
+    // Get group participants
+    const groupMetadata = await gss.groupMetadata(m.chat);
+    const participants = groupMetadata.participants || [];
+
+    const sender = m.sender || '';
+    let messageText = `*TAGGED BY:* @${sender.split("@")[0]}\n\n*MESSAGE:* ${text || "No message"}\n\n`;
+
+    for (let mem of participants) {
+      messageText += `@${mem.id.split("@")[0]}\n`;
+    }
+
+    await gss.sendMessage(
       m.chat,
-      { text: teks, mentions: participants.map((a) => a.id) },
+      {
+        text: messageText,
+        mentions: participants.map((p) => p.id),
+      },
       { quoted: m }
     );
+  } catch (err) {
+    console.error('❌ Error in tagAll:', err);
   }
 };
 
