@@ -1,93 +1,187 @@
-require('../config.cjs')
-const fs = require('fs')
-const axios = require('axios')
-const googleTTS = require('google-tts-api')
-const checkDiskSpace = require('check-disk-space');
-const chalk = require("chalk")
-const fetch = require("node-fetch")
-const FormData = require('form-data')
-const jimp = require("jimp")
-const os = require('os')
-const path = require('path')
-const { handleMediaUpload } = require('./lib/catbox.js')
-const { getDevice } = require('@whiskeysockets/baileys')
-const fsp = fs.promises;
-const lolcatjs = require('lolcatjs')
-const util = require("util")
-const moment = require("moment-timezone")
-const yts = require('yt-search')
-const { spawn, exec, execSync } = require('child_process')
-const { default: baileys, proto, jidNormalizedUser, generateWAMessage, generateWAMessageFromContent, getContentType, prepareWAMessageMedia } = require("@whiskeysockets/baileys")
-module.exports = conn = async (conn, m, chatUpdate, mek, store) => {
-try {
-const body = (m.mtype === "conversation" ? m.message.conversation : m.mtype === "imageMessage" ? m.message.imageMessage.caption : m.mtype === "videoMessage" ? m.message.videoMessage.caption : m.mtype === "extendedTextMessage" ? m.message.extendedTextMessage.text : m.mtype === "buttonsResponseMessage" ? m.message.buttonsResponseMessage.selectedButtonId : m.mtype === "listResponseMessage" ? m.message.listResponseMessage.singleSelectReply.selectedRowId : m.mtype === "templateButtonReplyMessage" ? m.message.templateButtonReplyMessage.selectedId : m.mtype === "interactiveResponseMessage" ? JSON.parse(m.msg.nativeFlowResponseMessage.paramsJson).id : m.mtype === "templateButtonReplyMessage" ? m.msg.selectedId : m.mtype === "messageContextInfo" ? m.message.buttonsResponseMessage?.selectedButtonId || m.message.listResponseMessage?.singleSelectReply.selectedRowId || m.text : "")
-const budy = (typeof m.text === 'string' ? m.text : '')
-var textmessage = (m.mtype == 'listResponseMessage') ? m.message.listResponseMessage.singleSelectReply.selectedRowId : (m.mtype == 'messageContextInfo') ? (m.message.buttonsResponseMessage?.selectedButtonId || m.message.listResponseMessage?.singleSelectReply.selectedRowId || budy) : ""
-const content = JSON.stringify(mek.message)
-const type = Object.keys(mek.message)[0]
-if (m && type == "protocolMessage") conn.ev.emit("message.delete", m.message.protocolMessage.key)
-const { sender } = m;
-const from = m.key.remoteJid;
-const isGroup = from.endsWith("@g.us")
-//database 
-const kontributor = JSON.parse(fs.readFileSync('./start/lib/database/owner.json'))
-const botNumber = await conn.decodeJid(conn.user.id)
-const Access = [global.owner, ...kontributor, ...global.owner]
-  .map(v => {
-    // Convert to string if not already a string
-    const str = typeof v === 'string' ? v : String(v);
-    return str.replace(/[^0-9]/g, '') + '@s.whatsapp.net';
-  })
-  .includes(m.sender) ? true : m.isChecking ? true : false;
-const prefa = ["", "!", ".", ",", "🐤", "👐🏽"]
-const prefix = /^[°zZ#$@+,.?=''():√%!¢£¥€π¤ΠΦ&><™©®Δ^]/.test(body) ? body.match(/^[°zZ#$@+,.?=''():√%¢£¥€π¤ΠΦ&><!™©®Δ^]/gi) : ''
-const isCmd = body.startsWith(prefix)
-const command = body.replace(prefix, '').trim().split(/ +/).shift().toLowerCase()
-const args = body.trim().split(/ +/).slice(1)
-const pushname = m.pushName || "No Name";
-const text = q = args.join(" ")
-const fatkuns = m.quoted || m;
-const quoted = fatkuns.mtype === 'buttonsMessage' ? fatkuns[Object.keys(fatkuns)[1]] : fatkuns.mtype === 'templateMessage' ? fatkuns.hydratedTemplate[Object.keys(fatkuns.hydratedTemplate)[1]] : fatkuns.mtype === 'product' ? fatkuns[Object.keys(fatkuns)[0]] : m.quoted ? m.quoted : m;
-const qmsg = quoted.msg || quoted;
-const mime = qmsg.mimetype || '';
-const isImage = type === 'imageMessage';
-const isVideo = type === 'videoMessage';
-const isAudio = type === 'audioMessage';
-const isMedia = /image|video|sticker|audio/.test(mime)
-const isQuotedImage = type === 'extendedTextMessage' && content.includes('imageMessage')
-const isQuotedVideo = type === 'extendedTextMessage' && content.includes('videoMessage')
-const isQuotedSticker = type === 'extendedTextMessage' && content.includes('stickerMessage')
-const isQuotedAudio = type === 'extendedTextMessage' && content.includes('audioMessage')
-const isQuotedTag = type === 'extendedTextMessage' && content.includes('mentionedJid')
-const isQuotedReply = type === 'extendedTextMessage' && content.includes('Message')
-const isQuotedText = type === 'extendedTextMessage' && content.includes('conversation')
-const isQuotedViewOnce = type === 'extendedTextMessage' && content.includes('viewOnceMessageV2')
-//group
-const groupMetadata = isGroup ? await conn.groupMetadata(m.chat).catch(() => {}) : "";
-const groupOwner = isGroup ? groupMetadata.owner : "";
-const groupName = isGroup ? groupMetadata.subject : "";
-const participants = isGroup ? await groupMetadata.participants : "";
-const groupAdmins = isGroup ? participants.filter(v => v.admin !== null).map(v => v.id) : "";
-const groupMembers = isGroup ? groupMetadata.participants : "";
-const isGroupAdmins = isGroup ? groupAdmins.includes(m.sender) : false;
-const isBotGroupAdmins = isGroup ? groupAdmins.includes(botNumber) : false;
-const isBotAdmins = isGroup ? groupAdmins.includes(botNumber) : false;
-const isAdmins = isGroup ? groupAdmins.includes(m.sender) : false;
-//time
-const time = moment().tz("Asia/Jakarta").format("HH:mm:ss")
-let ucapanWaktu
-if (time >= "19:00:00" && time < "23:59:00") {
-ucapanWaktu = "🌃𝐒𝐞𝐥𝐚𝐦𝐚𝐭 𝐌𝐚𝐥𝐚𝐦"
-} else if (time >= "15:00:00" && time < "19:00:00") {
-ucapanWaktu = "🌄𝐒𝐞𝐥𝐚𝐦𝐚𝐭 𝐒𝐨𝐫𝐞"
-} else if (time >= "11:00:00" && time < "15:00:00") {
-ucapanWaktu = "🏞️𝐒𝐞𝐥𝐚𝐦𝐚𝐭 𝐒𝐢𝐚𝐧𝐠"
-} else if (time >= "06:00:00" && time < "11:00:00") {
-ucapanWaktu = "🏙️𝐒𝐞𝐥𝐚𝐦𝐚𝐭 𝐏𝐚𝐠𝐢"
-} else {
-ucapanWaktu = "🌆𝐒𝐞𝐥𝐚𝐦𝐚𝐭 𝐒𝐮𝐛𝐮𝐡"
-}
+import '../config.cjs'
+import fs from 'fs'
+import axios from 'axios'
+import googleTTS from 'google-tts-api'
+import checkDiskSpace from 'check-disk-space'
+import chalk from 'chalk'
+import fetch from 'node-fetch'
+import FormData from 'form-data'
+import jimp from 'jimp'
+import os from 'os'
+import path from 'path'
+import { handleMediaUpload } from './lib/catbox.js'
+import { getDevice } from '@whiskeysockets/baileys'
+import lolcatjs from 'lolcatjs'
+import util from 'util'
+import moment from 'moment-timezone'
+import yts from 'yt-search'
+import { spawn, exec, execSync } from 'child_process'
+import baileys, {
+  proto,
+  jidNormalizedUser,
+  generateWAMessage,
+  generateWAMessageFromContent,
+  getContentType,
+  prepareWAMessageMedia
+} from '@whiskeysockets/baileys'
+import {
+  smsg,
+  sendGmail,
+  formatSize,
+  isUrl,
+  generateMessageTag,
+  getBuffer,
+  getSizeMedia,
+  runtime,
+  fetchJson,
+  sleep,
+  getRandom
+} from './lib/myfunction.js'
 
+export default async function connHandler(conn, m, chatUpdate, mek, store) {
+  try {
+    const body = (
+      m.mtype === 'conversation'
+        ? m.message.conversation
+        : m.mtype === 'imageMessage'
+        ? m.message.imageMessage.caption
+        : m.mtype === 'videoMessage'
+        ? m.message.videoMessage.caption
+        : m.mtype === 'extendedTextMessage'
+        ? m.message.extendedTextMessage.text
+        : m.mtype === 'buttonsResponseMessage'
+        ? m.message.buttonsResponseMessage.selectedButtonId
+        : m.mtype === 'listResponseMessage'
+        ? m.message.listResponseMessage.singleSelectReply.selectedRowId
+        : m.mtype === 'templateButtonReplyMessage'
+        ? m.message.templateButtonReplyMessage.selectedId
+        : m.mtype === 'interactiveResponseMessage'
+        ? JSON.parse(m.msg.nativeFlowResponseMessage.paramsJson).id
+        : m.mtype === 'templateButtonReplyMessage'
+        ? m.msg.selectedId
+        : m.mtype === 'messageContextInfo'
+        ? m.message.buttonsResponseMessage?.selectedButtonId ||
+          m.message.listResponseMessage?.singleSelectReply.selectedRowId ||
+          m.text
+        : ''
+    )
+
+    const budy = typeof m.text === 'string' ? m.text : ''
+    var textmessage =
+      m.mtype == 'listResponseMessage'
+        ? m.message.listResponseMessage.singleSelectReply.selectedRowId
+        : m.mtype == 'messageContextInfo'
+        ? m.message.buttonsResponseMessage?.selectedButtonId ||
+          m.message.listResponseMessage?.singleSelectReply.selectedRowId ||
+          budy
+        : ''
+    const content = JSON.stringify(mek.message)
+    const type = Object.keys(mek.message)[0]
+    if (m && type == 'protocolMessage')
+      conn.ev.emit('message.delete', m.message.protocolMessage.key)
+
+    const { sender } = m
+    const from = m.key.remoteJid
+    const isGroup = from.endsWith('@g.us')
+
+    // database
+    const kontributor = JSON.parse(
+      fs.readFileSync('./start/lib/database/owner.json')
+    )
+    const botNumber = await conn.decodeJid(conn.user.id)
+    const Access = [global.owner, ...kontributor, ...global.owner]
+      .map(v => {
+        const str = typeof v === 'string' ? v : String(v)
+        return str.replace(/[^0-9]/g, '') + '@s.whatsapp.net'
+      })
+      .includes(m.sender)
+      ? true
+      : m.isChecking
+      ? true
+      : false
+
+    const prefa = ['', '!', '.', ',', '🐤', '👐🏽']
+    const prefix = /^[°zZ#$@+,.?=''():√%!¢£¥€π¤ΠΦ&><™©®Δ^]/.test(body)
+      ? body.match(/^[°zZ#$@+,.?=''():√%¢£¥€π¤ΠΦ&><!™©®Δ^]/gi)
+      : ''
+    const isCmd = body.startsWith(prefix)
+    const command = body
+      .replace(prefix, '')
+      .trim()
+      .split(/ +/)
+      .shift()
+      .toLowerCase()
+    const args = body.trim().split(/ +/).slice(1)
+    const pushname = m.pushName || 'No Name'
+    const text = (q = args.join(' '))
+    const fatkuns = m.quoted || m
+    const quoted =
+      fatkuns.mtype === 'buttonsMessage'
+        ? fatkuns[Object.keys(fatkuns)[1]]
+        : fatkuns.mtype === 'templateMessage'
+        ? fatkuns.hydratedTemplate[Object.keys(fatkuns.hydratedTemplate)[1]]
+        : fatkuns.mtype === 'product'
+        ? fatkuns[Object.keys(fatkuns)[0]]
+        : m.quoted
+        ? m.quoted
+        : m
+    const qmsg = quoted.msg || quoted
+    const mime = qmsg.mimetype || ''
+    const isImage = type === 'imageMessage'
+    const isVideo = type === 'videoMessage'
+    const isAudio = type === 'audioMessage'
+    const isMedia = /image|video|sticker|audio/.test(mime)
+    const isQuotedImage =
+      type === 'extendedTextMessage' && content.includes('imageMessage')
+    const isQuotedVideo =
+      type === 'extendedTextMessage' && content.includes('videoMessage')
+    const isQuotedSticker =
+      type === 'extendedTextMessage' && content.includes('stickerMessage')
+    const isQuotedAudio =
+      type === 'extendedTextMessage' && content.includes('audioMessage')
+    const isQuotedTag =
+      type === 'extendedTextMessage' && content.includes('mentionedJid')
+    const isQuotedReply =
+      type === 'extendedTextMessage' && content.includes('Message')
+    const isQuotedText =
+      type === 'extendedTextMessage' && content.includes('conversation')
+    const isQuotedViewOnce =
+      type === 'extendedTextMessage' && content.includes('viewOnceMessageV2')
+
+    // group
+    const groupMetadata = isGroup
+      ? await conn.groupMetadata(m.chat).catch(() => {})
+      : ''
+    const groupOwner = isGroup ? groupMetadata.owner : ''
+    const groupName = isGroup ? groupMetadata.subject : ''
+    const participants = isGroup ? await groupMetadata.participants : ''
+    const groupAdmins = isGroup
+      ? participants.filter(v => v.admin !== null).map(v => v.id)
+      : ''
+    const groupMembers = isGroup ? groupMetadata.participants : ''
+    const isGroupAdmins = isGroup ? groupAdmins.includes(m.sender) : false
+    const isBotGroupAdmins = isGroup ? groupAdmins.includes(botNumber) : false
+    const isBotAdmins = isGroup ? groupAdmins.includes(botNumber) : false
+    const isAdmins = isGroup ? groupAdmins.includes(m.sender) : false
+
+    // time
+    const time = moment().tz('Asia/Jakarta').format('HH:mm:ss')
+    let ucapanWaktu
+    if (time >= '19:00:00' && time < '23:59:00') {
+      ucapanWaktu = '🌃𝐒𝐞𝐥𝐚𝐦𝐚𝐭 𝐌𝐚𝐥𝐚𝐦'
+    } else if (time >= '15:00:00' && time < '19:00:00') {
+      ucapanWaktu = '🌄𝐒𝐞𝐥𝐚𝐦𝐚𝐭 𝐒𝐨𝐫𝐞'
+    } else if (time >= '11:00:00' && time < '15:00:00') {
+      ucapanWaktu = '🏞️𝐒𝐞𝐥𝐚𝐦𝐚𝐭 𝐒𝐢𝐚𝐧𝐠'
+    } else if (time >= '06:00:00' && time < '11:00:00') {
+      ucapanWaktu = '🏙️𝐒𝐞𝐥𝐚𝐦𝐚𝐭 𝐏𝐚𝐠𝐢'
+    } else {
+      ucapanWaktu = '🌆𝐒𝐞𝐥𝐚𝐦𝐚𝐭 𝐒𝐮𝐛𝐮𝐡'
+    }
+
+    // your switch/case for commands comes here (menu, vinic, etc.)
+    // ...
+  
 function getRandomImage() {
 const randomIndex = Math.floor(Math.random() * cina.length)
 return cina[randomIndex]
