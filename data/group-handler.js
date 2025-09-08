@@ -57,4 +57,4 @@ export default async function GroupParticipants(sock, { id, participants, action
    } catch (e) {
       throw e
    }
-                    }
+}
