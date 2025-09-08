@@ -1,41 +1,33 @@
-const isAdmin = require('../lib/isAdmin');  // Move isAdmin to helpers
+import config from '../config.cjs';
 
-async function tagAllCommand(sock, chatId, senderId) {
-    try {
-        const { isSenderAdmin, isBotAdmin } = await isAdmin(sock, chatId, senderId);
-        
-        if (!isSenderAdmin && !isBotAdmin) {
-            await sock.sendMessage(chatId, {
-                text: 'Only admins can use the .tagall command.'
-            });
-            return;
-        }
+export default async function tagall(m, sock) {
+    const prefix = config.PREFIX;
+    const cmd = m.body.startsWith(prefix)
+        ? m.body.slice(prefix.length).split(' ')[0].toLowerCase()
+        : '';
 
-        // Get group metadata
-        const groupMetadata = await sock.groupMetadata(chatId);
-        const participants = groupMetadata.participants;
+    if (cmd !== 'tagall') return;
 
-        if (!participants || participants.length === 0) {
-            await sock.sendMessage(chatId, { text: 'No participants found in the group.' });
-            return;
-        }
-
-        // Create message with each member on a new line
-        let message = '🔊 *Group Members:*\n\n';
-        participants.forEach(participant => {
-            message += `@${participant.id.split('@')[0]}\n`; // Add \n for new line
+    // Only allow in groups
+    if (!m.key.remoteJid.endsWith('@g.us')) {
+        return sock.sendMessage(m.key.remoteJid, {
+            text: '*This command only works in groups.*'
         });
-
-        // Send message with mentions
-        await sock.sendMessage(chatId, {
-            text: message,
-            mentions: participants.map(p => p.id)
-        });
-
-    } catch (error) {
-        console.error('Error in tagall command:', error);
-        await sock.sendMessage(chatId, { text: 'Failed to tag all members.' });
     }
-}
 
-module.exports = tagAllCommand;  // Export directly
+    const groupMetadata = await sock.groupMetadata(m.key.remoteJid);
+    const participants = groupMetadata.participants;
+
+    // Get optional message after command
+    const text = m.body.slice(prefix.length + cmd.length).trim() || 'Everyone here!';
+
+    const mentions = participants.map(p => p.id);
+
+    let messageText = `*📢 TAGALL by @${m.key.participant?.split('@')[0]}*\n\n${text}\n\n`;
+    messageText += participants.map(p => `@${p.id.split('@')[0]}`).join(' ');
+
+    await sock.sendMessage(m.key.remoteJid, {
+        text: messageText,
+        mentions
+    });
+}
