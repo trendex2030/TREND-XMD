@@ -1,8 +1,13 @@
-const fs = require('fs');
-const path = require('path');
-const { tmpdir } = require('os');
-const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
-const { writeFile } = require('fs/promises');
+import fs from 'fs';
+import path from 'path';
+import { tmpdir } from 'os';
+import { downloadContentFromMessage } from '@whiskeysockets/baileys';
+import { writeFile } from 'fs/promises';
+import { fileURLToPath } from 'url';
+
+// Fix __dirname in ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const messageStore = new Map();
 const CONFIG_PATH = path.join(__dirname, '../data/antidelete.json');
@@ -11,6 +16,15 @@ const TEMP_MEDIA_DIR = path.join(__dirname, '../tmp');
 // Ensure tmp dir exists
 if (!fs.existsSync(TEMP_MEDIA_DIR)) {
     fs.mkdirSync(TEMP_MEDIA_DIR, { recursive: true });
+}
+
+// Convert async iterator → Buffer
+async function streamToBuffer(stream) {
+    const chunks = [];
+    for await (const chunk of stream) {
+        chunks.push(chunk);
+    }
+    return Buffer.concat(chunks);
 }
 
 // Function to get folder size in MB
@@ -33,11 +47,11 @@ const getFolderSizeInMB = (folderPath) => {
     }
 };
 
-// Function to clean temp folder if size exceeds 10MB
+// Function to clean temp folder if size exceeds 100MB
 const cleanTempFolderIfLarge = () => {
     try {
         const sizeMB = getFolderSizeInMB(TEMP_MEDIA_DIR);
-        
+
         if (sizeMB > 100) {
             const files = fs.readdirSync(TEMP_MEDIA_DIR);
             for (const file of files) {
@@ -73,7 +87,7 @@ function saveAntideleteConfig(config) {
 }
 
 // Command Handler
-async function handleAntideleteCommand(sock, chatId, message, match) {
+export async function handleAntideleteCommand(sock, chatId, message, match) {
     if (!message.key.fromMe) {
         return sock.sendMessage(chatId, { text: '*Only the bot owner can use this command.*' });
     }
@@ -99,7 +113,7 @@ async function handleAntideleteCommand(sock, chatId, message, match) {
 }
 
 // Store incoming messages
-async function storeMessage(message) {
+export async function storeMessage(message) {
     try {
         const config = loadAntideleteConfig();
         if (!config.enabled) return; // Don't store if antidelete is disabled
@@ -121,18 +135,21 @@ async function storeMessage(message) {
         } else if (message.message?.imageMessage) {
             mediaType = 'image';
             content = message.message.imageMessage.caption || '';
-            const buffer = await downloadContentFromMessage(message.message.imageMessage, 'image');
+            const stream = await downloadContentFromMessage(message.message.imageMessage, 'image');
+            const buffer = await streamToBuffer(stream);
             mediaPath = path.join(TEMP_MEDIA_DIR, `${messageId}.jpg`);
             await writeFile(mediaPath, buffer);
         } else if (message.message?.stickerMessage) {
             mediaType = 'sticker';
-            const buffer = await downloadContentFromMessage(message.message.stickerMessage, 'sticker');
+            const stream = await downloadContentFromMessage(message.message.stickerMessage, 'sticker');
+            const buffer = await streamToBuffer(stream);
             mediaPath = path.join(TEMP_MEDIA_DIR, `${messageId}.webp`);
             await writeFile(mediaPath, buffer);
         } else if (message.message?.videoMessage) {
             mediaType = 'video';
             content = message.message.videoMessage.caption || '';
-            const buffer = await downloadContentFromMessage(message.message.videoMessage, 'video');
+            const stream = await downloadContentFromMessage(message.message.videoMessage, 'video');
+            const buffer = await streamToBuffer(stream);
             mediaPath = path.join(TEMP_MEDIA_DIR, `${messageId}.mp4`);
             await writeFile(mediaPath, buffer);
         }
@@ -152,7 +169,7 @@ async function storeMessage(message) {
 }
 
 // Handle message deletion
-async function handleMessageRevocation(sock, revocationMessage) {
+export async function handleMessageRevocation(sock, revocationMessage) {
     try {
         const config = loadAntideleteConfig();
         if (!config.enabled) return;
@@ -241,9 +258,3 @@ async function handleMessageRevocation(sock, revocationMessage) {
         console.error('handleMessageRevocation error:', err);
     }
 }
-
-module.exports = {
-    handleAntideleteCommand,
-    handleMessageRevocation,
-    storeMessage
-};
