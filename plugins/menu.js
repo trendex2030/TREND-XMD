@@ -30,14 +30,12 @@ const menu = async (m, sock) => {
 
     const menuText = `
 ┏▣ ─── 𝙏𝙍𝙀𝙉𝘿-𝙓 ──────
-│   𓅓 ʙᴏᴛ : *TREND-X*
-│ ⏱️ ʀᴜɴᴛɪᴍᴇ : ${uptime}
-│ ⚡ sᴘᴇᴇᴅ : ${responseTime}s
-│ 🌐 ᴍᴏᴅᴇ : public
-│ 🧩 ᴘʀᴇғɪx : ${prefix}
+│➽ ʀᴜɴᴛɪᴍᴇ : ${uptime}
+│➽ sᴘᴇᴇᴅ : ${responseTime}s
+│➽ ᴍᴏᴅᴇ : public
+│➽ ᴘʀᴇғɪx : ${prefix}
 │ 𓅓 ᴏᴡɴᴇʀ : TREND-X
-│ 🛠️ ᴅᴇᴠ : *ᴘᴏᴘᴋɪᴅ*
-│ 🧪 ᴠᴇʀ : *2.0.0*
+│➽ ᴠᴇʀ : *2.0.0*
 ┗▣───────────────⭓
 ┏▣ ━━━━━━━━━━━━━━━━━━
 │𓅓 *WE LEAD OTHERS COPY* 𓅓
