@@ -1,33 +1,47 @@
 import config from '../config.cjs';
 
-export default async function tagall(m, sock) {
-    const prefix = config.PREFIX;
-    const cmd = m.body.startsWith(prefix)
-        ? m.body.slice(prefix.length).split(' ')[0].toLowerCase()
-        : '';
+const tagAll = async (m, gss) => {
+  try {
+    const botNumber = await gss.decodeJid(gss.user.id);
+    const prefix = config.PREFIX || '.';
 
+    // Ranmase tèks ki antre a
+    const body = m.body || m.message?.conversation || m.text || '';
+    const isCmd = body.startsWith(prefix);
+    const cmd = isCmd ? body.slice(prefix.length).split(' ')[0].toLowerCase() : '';
+    const text = isCmd ? body.slice(prefix.length + cmd.length).trim() : '';
+
+    // Verifye si se "tagall"
     if (cmd !== 'tagall') return;
 
-    // Only allow in groups
-    if (!m.key.remoteJid.endsWith('@g.us')) {
-        return sock.sendMessage(m.key.remoteJid, {
-            text: '*This command only works in groups.*'
-        });
+    if (!m.isGroup) return m.reply('*📛 THIS COMMAND CAN ONLY BE USED IN GROUPS*');
+
+    const groupMetadata = await gss.groupMetadata(m.from);
+    const participants = groupMetadata.participants || [];
+
+    // Verifye si bot la ak admin ki voye l se admin
+    const bot = participants.find(p => p.id === botNumber);
+    const sender = participants.find(p => p.id === m.sender);
+
+    if (!bot?.admin) return m.reply('*📛 BOT MUST BE AN ADMIN TO USE THIS COMMAND*');
+    if (!sender?.admin) return m.reply('*📛 YOU MUST BE AN ADMIN TO USE THIS COMMAND*');
+
+    // Fè mesaj la
+    let message = `乂 *Attention Everyone* 乂\n\n*Message:* ${text || 'no message'}\n\n`;
+    for (let p of participants) {
+      message += `❒ @${p.id.split('@')[0]}\n`;
     }
 
-    const groupMetadata = await sock.groupMetadata(m.key.remoteJid);
-    const participants = groupMetadata.participants;
+    await gss.sendMessage(
+      m.from,
+      { text: message, mentions: participants.map(a => a.id) },
+      { quoted: m }
+    );
 
-    // Get optional message after command
-    const text = m.body.slice(prefix.length + cmd.length).trim() || 'Everyone here!';
+  } catch (error) {
+    console.error('Error:', error);
+    await m.reply('❌ An error occurred while processing the command.');
+  }
+};
 
-    const mentions = participants.map(p => p.id);
-
-    let messageText = `*📢 TAGALL by @${m.key.participant?.split('@')[0]}*\n\n${text}\n\n`;
-    messageText += participants.map(p => `@${p.id.split('@')[0]}`).join(' ');
-
-    await sock.sendMessage(m.key.remoteJid, {
-        text: messageText,
-        mentions
-    });
-}
+export default tagAll;

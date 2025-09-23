@@ -1,260 +1,330 @@
+// anti-delete.js
+import pkg from '@whiskeysockets/baileys';
+const { proto, downloadContentFromMessage } = pkg;
+import config from '../config.cjs';
 import fs from 'fs';
 import path from 'path';
-import { tmpdir } from 'os';
-import { downloadContentFromMessage } from '@whiskeysockets/baileys';
-import { writeFile } from 'fs/promises';
-import { fileURLToPath } from 'url';
 
-// Fix __dirname in ESM
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const DB_FILE = path.join(process.cwd(), "antidelete.json");
 
-const messageStore = new Map();
-const CONFIG_PATH = path.join(__dirname, '../data/antidelete.json');
-const TEMP_MEDIA_DIR = path.join(__dirname, '../tmp');
+class AntiDeleteSystem {
+  constructor() {
+    this.enabled = config.ANTI_DELETE || false;
+    this.cacheExpiry = 1800000;
+    this.messageCache = new Map();
+    this.cleanupTimer = null;
+    this.isSaving = false;
+    this.saveQueue = [];
+    
+    this.loadDatabase();
+    this.startCleanup();
+    console.log("🛡️ Anti-Delete System Initialized");
+  }
 
-// Ensure tmp dir exists
-if (!fs.existsSync(TEMP_MEDIA_DIR)) {
-    fs.mkdirSync(TEMP_MEDIA_DIR, { recursive: true });
+  async loadDatabase() {
+    try {
+      if (fs.existsSync(DB_FILE)) {
+        const data = await fs.promises.readFile(DB_FILE, 'utf8');
+        const entries = JSON.parse(data);
+        const now = Date.now();
+        const validEntries = entries.filter(([key, message]) => now - message.timestamp <= this.cacheExpiry);
+        
+        this.messageCache = new Map(validEntries);
+        console.log(`📦 Loaded ${validEntries.length} messages from database`);
+        
+        if (entries.length !== validEntries.length) {
+          await this.saveDatabase();
+        }
+      }
+    } catch (error) {
+      console.error("🔴 Database load error:", error);
+      this.messageCache = new Map();
+    }
+  }
+
+  async saveDatabase() {
+    if (this.isSaving) {
+      return new Promise(resolve => this.saveQueue.push(resolve));
+    }
+    
+    this.isSaving = true;
+    try {
+      const data = JSON.stringify(Array.from(this.messageCache.entries()));
+      await fs.promises.writeFile(DB_FILE, data);
+      console.log(`💾 Database saved (${this.messageCache.size} messages)`);
+      
+      while (this.saveQueue.length) {
+        const resolve = this.saveQueue.shift();
+        resolve();
+      }
+    } catch (error) {
+      console.error("🔴 Database save error:", error);
+    } finally {
+      this.isSaving = false;
+    }
+  }
+
+  async addMessage(id, message) {
+    if (this.messageCache.size > 1000) {
+      this.cleanExpiredMessages(true);
+    }
+    
+    this.messageCache.set(id, message);
+    console.log(`📥 Cached message: ${id}`);
+    await this.saveDatabase();
+  }
+
+  async deleteMessage(id) {
+    if (this.messageCache.has(id)) {
+      this.messageCache.delete(id);
+      console.log(`🗑️ Deleted from cache: ${id}`);
+      await this.saveDatabase();
+    }
+  }
+
+  cleanExpiredMessages(force = false) {
+    const now = Date.now();
+    let cleaned = 0;
+    const limit = force ? this.messageCache.size : Math.min(100, this.messageCache.size);
+
+    for (const [key, message] of this.messageCache.entries()) {
+      if (now - message.timestamp > this.cacheExpiry) {
+        this.messageCache.delete(key);
+        cleaned++;
+      }
+      if (!force && cleaned >= limit) break;
+    }
+
+    if (cleaned > 0) {
+      console.log(`🧹 Cleaned ${cleaned} expired messages`);
+      this.saveDatabase();
+    }
+  }
+
+  startCleanup() {
+    if (this.cleanupTimer) clearInterval(this.cleanupTimer);
+    
+    this.cleanupTimer = setInterval(
+      () => this.cleanExpiredMessages(),
+      Math.min(this.cacheExpiry, 300000)
+    );
+    console.log("⏰ Cleanup scheduler started");
+  }
+
+  formatTime(timestamp) {
+    return new Date(timestamp).toLocaleString('en-PK', {
+      timeZone: "Asia/Karachi",
+      dateStyle: 'medium',
+      timeStyle: 'medium',
+      hour12: true
+    }) + " (PKT)";
+  }
+
+  async destroy() {
+    if (this.cleanupTimer) clearInterval(this.cleanupTimer);
+    await this.saveDatabase();
+  }
 }
 
-// Convert async iterator → Buffer
-async function streamToBuffer(stream) {
-    const chunks = [];
-    for await (const chunk of stream) {
-        chunks.push(chunk);
-    }
-    return Buffer.concat(chunks);
-}
+const antiDelete = new AntiDeleteSystem();
 
-// Function to get folder size in MB
-const getFolderSizeInMB = (folderPath) => {
+const AntiDelete = async (m, Matrix) => {
+  const prefix = config.PREFIX;
+  const botNumber = await Matrix.decodeJid(Matrix.user.id);
+  const isCreator = [botNumber, config.OWNER_NUMBER + '@s.whatsapp.net'].includes(m.sender);
+  const args = m.body?.slice(prefix.length).trim().split(" ") || [];
+  const cmd = args[0]?.toLowerCase();
+  const subcmd = args[1]?.toLowerCase();
+
+  const getChatInfo = async jid => {
+    if (!jid) return { name: "🚫 Unknown Chat", isGroup: false };
+    
     try {
-        const files = fs.readdirSync(folderPath);
-        let totalSize = 0;
-
-        for (const file of files) {
-            const filePath = path.join(folderPath, file);
-            if (fs.statSync(filePath).isFile()) {
-                totalSize += fs.statSync(filePath).size;
-            }
-        }
-
-        return totalSize / (1024 * 1024); // Convert bytes to MB
-    } catch (err) {
-        console.error('Error getting folder size:', err);
-        return 0;
-    }
-};
-
-// Function to clean temp folder if size exceeds 100MB
-const cleanTempFolderIfLarge = () => {
-    try {
-        const sizeMB = getFolderSizeInMB(TEMP_MEDIA_DIR);
-
-        if (sizeMB > 100) {
-            const files = fs.readdirSync(TEMP_MEDIA_DIR);
-            for (const file of files) {
-                const filePath = path.join(TEMP_MEDIA_DIR, file);
-                fs.unlinkSync(filePath);
-            }
-        }
-    } catch (err) {
-        console.error('Temp cleanup error:', err);
-    }
-};
-
-// Start periodic cleanup check every 1 minute
-setInterval(cleanTempFolderIfLarge, 60 * 1000);
-
-// Load config
-function loadAntideleteConfig() {
-    try {
-        if (!fs.existsSync(CONFIG_PATH)) return { enabled: false };
-        return JSON.parse(fs.readFileSync(CONFIG_PATH));
+      return jid.includes("@g.us") 
+        ? { 
+            name: (await Matrix.groupMetadata(jid))?.subject || "👥 Private Group", 
+            isGroup: true 
+          }
+        : { name: "👤 Private Chat", isGroup: false };
     } catch {
-        return { enabled: false };
+      return { name: "🚫 Unknown Chat", isGroup: false };
     }
-}
+  };
 
-// Save config
-function saveAntideleteConfig(config) {
+  if (cmd === "antidelete" && isCreator) {
     try {
-        fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
-    } catch (err) {
-        console.error('Config save error:', err);
+      const modes = {
+        same: "🔄 Same Chat",
+        inbox: "📥 Bot Inbox",
+        owner: "👑 Owner PM"
+      };
+      const currentMode = modes[config.ANTI_DELETE_PATH] || modes.owner;
+
+      const responses = {
+        on: `🌟 *Anti-Delete Activated* 🌟
+            \n• Status: 🟢 Active
+            \n• Protection: Full Coverage
+            \n• Cache: 30 Minutes
+            \n• Mode: ${currentMode}
+            \n📦 Stored: ${antiDelete.messageCache.size} messages`,
+
+        off: `⚠️ *Anti-Delete Deactivated* ⚠️
+             \n• Status: 🔴 Inactive
+             \n• Cache: Cleared
+             \n• Protection: Disabled`,
+
+        stats: `📊 *Anti-Delete Stats*
+               \n• Stored Messages: ${antiDelete.messageCache.size}
+               \n• Status: ${antiDelete.enabled ? '🟢 Active' : '🔴 Inactive'}
+               \n• Mode: ${currentMode}
+               \n• Uptime: Continuous`,
+
+        help: `🛡️ *Anti-Delete Help*
+              \n• ${prefix}antidelete on - Enable protection
+              \n• ${prefix}antidelete off - Disable system
+              \n• ${prefix}antidelete stats - Show statistics
+              \n• Current Mode: ${currentMode}`
+      };
+
+      switch(subcmd) {
+        case 'on':
+          antiDelete.enabled = true;
+          antiDelete.startCleanup();
+          await m.reply(responses.on);
+          await m.React('🛡️');
+          break;
+
+        case 'off':
+          antiDelete.enabled = false;
+          antiDelete.messageCache.clear();
+          await antiDelete.saveDatabase();
+          await m.reply(responses.off);
+          await m.React('⚠️');
+          break;
+
+        case 'stats':
+          await m.reply(responses.stats);
+          await m.React('📊');
+          break;
+
+        default:
+          await m.reply(responses.help);
+          await m.React('ℹ️');
+      }
+    } catch (error) {
+      console.error("🔴 Command Error:", error);
+      await m.React('❌');
     }
-}
+    return;
+  }
 
-// Command Handler
-export async function handleAntideleteCommand(sock, chatId, message, match) {
-    if (!message.key.fromMe) {
-        return sock.sendMessage(chatId, { text: '*Only the bot owner can use this command.*' });
-    }
+  // Message handling events...
+  Matrix.ev.on("messages.upsert", async ({ messages, type }) => {
+    if (!antiDelete.enabled || type !== 'notify' || !messages?.length) return;
 
-    const config = loadAntideleteConfig();
+    for (const msg of messages) {
+      try {
+        if (msg.key.fromMe || msg.key.remoteJid === 'status@broadcast') continue;
 
-    if (!match) {
-        return sock.sendMessage(chatId, {
-            text: `*ANTIDELETE SETUP*\n\nCurrent Status: ${config.enabled ? '✅ Enabled' : '❌ Disabled'}\n\n*.antidelete on* - Enable\n*.antidelete off* - Disable`
-        });
-    }
-
-    if (match === 'on') {
-        config.enabled = true;
-    } else if (match === 'off') {
-        config.enabled = false;
-    } else {
-        return sock.sendMessage(chatId, { text: '*Invalid command. Use .antidelete to see usage.*' });
-    }
-
-    saveAntideleteConfig(config);
-    return sock.sendMessage(chatId, { text: `*Antidelete ${match === 'on' ? 'enabled' : 'disabled'}*` });
-}
-
-// Store incoming messages
-export async function storeMessage(message) {
-    try {
-        const config = loadAntideleteConfig();
-        if (!config.enabled) return; // Don't store if antidelete is disabled
-
-        if (!message.key?.id) return;
-
-        const messageId = message.key.id;
-        let content = '';
-        let mediaType = '';
-        let mediaPath = '';
-
-        const sender = message.key.participant || message.key.remoteJid;
-
-        // Detect content
-        if (message.message?.conversation) {
-            content = message.message.conversation;
-        } else if (message.message?.extendedTextMessage?.text) {
-            content = message.message.extendedTextMessage.text;
-        } else if (message.message?.imageMessage) {
-            mediaType = 'image';
-            content = message.message.imageMessage.caption || '';
-            const stream = await downloadContentFromMessage(message.message.imageMessage, 'image');
-            const buffer = await streamToBuffer(stream);
-            mediaPath = path.join(TEMP_MEDIA_DIR, `${messageId}.jpg`);
-            await writeFile(mediaPath, buffer);
-        } else if (message.message?.stickerMessage) {
-            mediaType = 'sticker';
-            const stream = await downloadContentFromMessage(message.message.stickerMessage, 'sticker');
-            const buffer = await streamToBuffer(stream);
-            mediaPath = path.join(TEMP_MEDIA_DIR, `${messageId}.webp`);
-            await writeFile(mediaPath, buffer);
-        } else if (message.message?.videoMessage) {
-            mediaType = 'video';
-            content = message.message.videoMessage.caption || '';
-            const stream = await downloadContentFromMessage(message.message.videoMessage, 'video');
-            const buffer = await streamToBuffer(stream);
-            mediaPath = path.join(TEMP_MEDIA_DIR, `${messageId}.mp4`);
-            await writeFile(mediaPath, buffer);
-        }
-
-        messageStore.set(messageId, {
-            content,
-            mediaType,
-            mediaPath,
-            sender,
-            group: message.key.remoteJid.endsWith('@g.us') ? message.key.remoteJid : null,
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (err) {
-        console.error('storeMessage error:', err);
-    }
-}
-
-// Handle message deletion
-export async function handleMessageRevocation(sock, revocationMessage) {
-    try {
-        const config = loadAntideleteConfig();
-        if (!config.enabled) return;
-
-        const messageId = revocationMessage.message.protocolMessage.key.id;
-        const deletedBy = revocationMessage.participant || revocationMessage.key.participant || revocationMessage.key.remoteJid;
-        const ownerNumber = sock.user.id.split(':')[0] + '@s.whatsapp.net';
-
-        if (deletedBy.includes(sock.user.id) || deletedBy === ownerNumber) return;
-
-        const original = messageStore.get(messageId);
-        if (!original) return;
-
-        const sender = original.sender;
-        const senderName = sender.split('@')[0];
-        const groupName = original.group ? (await sock.groupMetadata(original.group)).subject : '';
-
-        const time = new Date().toLocaleString('en-US', {
-            timeZone: 'Asia/Kolkata',
-            hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit',
-            day: '2-digit', month: '2-digit', year: 'numeric'
-        });
-
-        let text = `*🔰 ANTIDELETE REPORT 🔰*\n\n` +
-            `*🗑️ Deleted By:* @${deletedBy.split('@')[0]}\n` +
-            `*👤 Sender:* @${senderName}\n` +
-            `*📱 Number:* ${sender}\n` +
-            `*🕒 Time:* ${time}\n`;
-
-        if (groupName) text += `*👥 Group:* ${groupName}\n`;
-
-        if (original.content) {
-            text += `\n*💬 Deleted Message:*\n${original.content}`;
-        }
-
-        await sock.sendMessage(ownerNumber, {
-            text,
-            mentions: [deletedBy, sender]
-        });
-
-        // Media sending
-        if (original.mediaType && fs.existsSync(original.mediaPath)) {
-            const mediaOptions = {
-                caption: `*Deleted ${original.mediaType}*\nFrom: @${senderName}`,
-                mentions: [sender]
+        // Voice message handling
+        if (msg.message.audioMessage?.ptt) {
+          try {
+            console.log("🔊 Processing voice message");
+            const stream = await downloadContentFromMessage(msg.message.audioMessage, 'audio');
+            const mediaBuffer = await collectStream(stream);
+            
+            const cacheEntry = {
+              type: 'ptt',
+              media: mediaBuffer,
+              mimetype: msg.message.audioMessage.mimetype || "audio/ogg; codecs=opus",
+              sender: msg.key.participant || msg.key.remoteJid,
+              senderFormatted: '@' + (msg.key.participant || msg.key.remoteJid)
+                                .replace(/@s\.whatsapp\.net|@g\.us/g, ''),
+              timestamp: Date.now(),
+              chatJid: msg.key.remoteJid
             };
-
-            try {
-                switch (original.mediaType) {
-                    case 'image':
-                        await sock.sendMessage(ownerNumber, {
-                            image: { url: original.mediaPath },
-                            ...mediaOptions
-                        });
-                        break;
-                    case 'sticker':
-                        await sock.sendMessage(ownerNumber, {
-                            sticker: { url: original.mediaPath },
-                            ...mediaOptions
-                        });
-                        break;
-                    case 'video':
-                        await sock.sendMessage(ownerNumber, {
-                            video: { url: original.mediaPath },
-                            ...mediaOptions
-                        });
-                        break;
-                }
-            } catch (err) {
-                await sock.sendMessage(ownerNumber, {
-                    text: `⚠️ Error sending media: ${err.message}`
-                });
-            }
-
-            // Cleanup
-            try {
-                fs.unlinkSync(original.mediaPath);
-            } catch (err) {
-                console.error('Media cleanup error:', err);
-            }
+            
+            await antiDelete.addMessage(msg.key.id, cacheEntry);
+            console.log("✅ Voice message cached");
+            continue;
+          } catch (error) {
+            console.error("🔇 Voice message error:", error);
+          }
         }
 
-        messageStore.delete(messageId);
-
-    } catch (err) {
-        console.error('handleMessageRevocation error:', err);
+        // Rest of message processing...
+      } catch (error) {
+        console.error("📥 Message Processing Error:", error);
+      }
     }
+  });
+
+  Matrix.ev.on("messages.update", async updates => {
+    if (!antiDelete.enabled || !updates?.length) return;
+
+    for (const update of updates) {
+      try {
+        const { key, update: status } = update;
+        const isDeleted = status?.messageStubType === proto.WebMessageInfo.StubType.REVOKE ||
+                        status?.status === proto.WebMessageInfo.Status.DELETED;
+
+        if (!isDeleted || key.fromMe || !antiDelete.messageCache.has(key.id)) continue;
+
+        const cached = antiDelete.messageCache.get(key.id);
+        await antiDelete.deleteMessage(key.id);
+
+        // Determine destination
+        let destination;
+        switch(config.ANTI_DELETE_PATH) {
+          case 'same': destination = key.remoteJid; break;
+          case 'inbox': destination = Matrix.user.id; break;
+          default: destination = config.OWNER_NUMBER + '@s.whatsapp.net';
+        }
+
+        // Send alert first
+        await Matrix.sendMessage(destination, { 
+          text: `🚨 *Deleted ${cached.type?.toUpperCase() || 'Message'} Recovered!*
+                \n▫️ *Sender:* ${cached.senderFormatted}
+                \n▫️ *Chat:* ${(await getChatInfo(cached.chatJid)).name}
+                \n🕒 *Time:* ${antiDelete.formatTime(cached.timestamp)}`
+        });
+
+        // Handle voice notes
+        if (cached.type === 'ptt') {
+          await Matrix.sendMessage(destination, {
+            audio: cached.media,
+            mimetype: cached.mimetype,
+            ptt: true
+          });
+        } 
+        // Handle other media
+        else if (cached.media) {
+          await Matrix.sendMessage(destination, {
+            [cached.type]: cached.media,
+            mimetype: cached.mimetype
+          });
+        }
+        // Handle text
+        if (cached.content) {
+          await Matrix.sendMessage(destination, {
+            text: `📝 *Content:*\n${cached.content}`
+          });
+        }
+
+        await Matrix.sendReaction(destination, { id: key.id, remoteJid: key.remoteJid }, '✅');
+
+      } catch (error) {
+        console.error("🔴 Recovery Error:", error);
+        await Matrix.sendReaction(destination, { id: key.id, remoteJid: key.remoteJid }, '❌');
+      }
+    }
+  });
+};
+
+async function collectStream(stream) {
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  return Buffer.concat(chunks);
 }
+
+export default AntiDelete;
