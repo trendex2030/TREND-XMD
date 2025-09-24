@@ -13,18 +13,17 @@ const groupSetting = async (m, gss) => {
     const text = m.body.slice(prefix.length + cmd.length).trim();
 
     if (cmd !== "group") return;
-
-    if (!m.isGroup) return m.reply("*📛 THIS COMMAND CAN ONLY BE USED IN GROUPS*");
+    if (!m.isGroup) return m.reply("📛 *This command can only be used in groups.*");
 
     const groupMetadata = await gss.groupMetadata(m.from);
     const participants = groupMetadata.participants;
 
     const botNumber = await gss.decodeJid(gss.user.id);
-    const botAdmin = participants.find(p => p.id === botNumber)?.admin;
-    const senderAdmin = participants.find(p => p.id === m.sender)?.admin;
+    const botAdmin = participants.find(p => p.id === botNumber)?.admin !== null;
+    const senderAdmin = participants.find(p => p.id === m.sender)?.admin !== null;
 
-    if (!botAdmin) return m.reply("*📛 BOT MUST BE AN ADMIN TO USE THIS COMMAND*");
-    if (!senderAdmin) return m.reply("*📛 YOU MUST BE AN ADMIN TO USE THIS COMMAND*");
+    if (!botAdmin) return m.reply("📛 *I must be an admin to use this command!*");
+    if (!senderAdmin) return m.reply("📛 *You must be an admin to use this command!*");
 
     const args = text.split(/\s+/);
     if (!args[0]) {
@@ -53,20 +52,17 @@ const groupSetting = async (m, gss) => {
       return m.reply("⚠️ Invalid option! Use `open` or `close`.");
     }
 
-    // Scheduled action
-    if (!/^\d{1,2}:\d{2}\s*(AM|PM)$/i.test(time)) {
+    // Validate time format
+    if (!moment(time, ["h:mm A", "HH:mm"], true).isValid()) {
       return m.reply("⚠️ Invalid time format. Use `HH:mm AM/PM` (e.g., 04:30 PM).");
     }
 
-    const [hour, minute] = moment(time, ["h:mm A"]).format("HH:mm").split(":");
+    const [hour, minute] = moment(time, ["h:mm A", "HH:mm"]).format("HH:mm").split(":");
     const cronTime = `${minute} ${hour} * * *`;
 
-    if (scheduledTasks[m.from]) {
-      scheduledTasks[m.from].stop();
-      delete scheduledTasks[m.from];
-    }
+    if (!scheduledTasks[m.from]) scheduledTasks[m.from] = [];
 
-    scheduledTasks[m.from] = cron.schedule(
+    const task = cron.schedule(
       cronTime,
       async () => {
         try {
@@ -81,8 +77,10 @@ const groupSetting = async (m, gss) => {
           console.error("Scheduled error:", err);
         }
       },
-      { timezone: "Africa/Nairobi" } // adjust if needed
+      { timezone: config.TIMEZONE || "Africa/Nairobi" }
     );
+
+    scheduledTasks[m.from].push(task);
 
     return m.reply(`📅 Group will be set to *${action.toUpperCase()}* at ${time}.`);
   } catch (error) {
