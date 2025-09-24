@@ -7,8 +7,8 @@ let autoBioEnabled = false;
 const autoBio = async (m, gss) => {
   try {
     const prefix = config.PREFIX;
-    const cmd = m.body.startsWith(prefix) 
-      ? m.body.slice(prefix.length).split(" ")[0].toLowerCase() 
+    const cmd = m.body.startsWith(prefix)
+      ? m.body.slice(prefix.length).split(" ")[0].toLowerCase()
       : "";
     const text = m.body.slice(prefix.length + cmd.length).trim().toLowerCase();
 
@@ -19,19 +19,20 @@ const autoBio = async (m, gss) => {
       if (autoBioEnabled) return m.reply("✅ AutoBio is already running.");
 
       autoBioEnabled = true;
+
       autoBioInterval = setInterval(async () => {
         try {
           const tz = config.TIMEZONE || "Africa/Nairobi"; // default timezone
-          const timeNow = moment().tz(tz).format("hh:mm A - dddd, MMMM Do YYYY");
+          const timeNow = moment().tz(tz).format("hh:mm:ss A - dddd, MMMM Do YYYY");
 
           await gss.updateProfileStatus(`⏰ ${timeNow}`);
           console.log(`Bio updated: ${timeNow}`);
         } catch (err) {
           console.error("❌ Failed to update bio:", err);
         }
-      }, 60 * 1000);
+      }, 1000); // every second
 
-      await m.reply("✅ AutoBio enabled! Your bio will update every minute.");
+      await m.reply("✅ AutoBio enabled! Your bio will now update *every second* with real time.");
     }
 
     // Disable autobio
@@ -47,8 +48,8 @@ const autoBio = async (m, gss) => {
 
     // Show status
     else if (text === "status") {
-      const statusMsg = autoBioEnabled 
-        ? "✅ AutoBio is currently *enabled* and updating every minute."
+      const statusMsg = autoBioEnabled
+        ? "✅ AutoBio is currently *enabled* and updating every second."
         : "❌ AutoBio is currently *disabled*.";
       await m.reply(statusMsg);
     }
@@ -58,9 +59,9 @@ const autoBio = async (m, gss) => {
       await m.reply(
         `🛡️ *AutoBio Commands* 🛡️
         
-• ${prefix}autobio on   → Enable autobio
-• ${prefix}autobio off  → Disable autobio
-• ${prefix}autobio status → Show autobio status`
+• ${prefix}autobio on      → Enable autobio (real-time, every second)
+• ${prefix}autobio off     → Disable autobio
+• ${prefix}autobio status  → Show autobio status`
       );
     }
   } catch (error) {
