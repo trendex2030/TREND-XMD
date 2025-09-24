@@ -34,7 +34,7 @@ const menu = async (m, sock) => {
 │➽ sᴘᴇᴇᴅ : ${responseTime}s
 │➽ ᴍᴏᴅᴇ : public
 │➽ ᴘʀᴇғɪx : ${prefix}
-│ 𓅓 ᴏᴡɴᴇʀ : TREND-X
+│➽ ᴏᴡɴᴇʀ : TREND-X
 │➽ ᴠᴇʀ : *2.0.0*
 ┗▣───────────────⭓
 ┏▣ ━━━━━━━━━━━━━━━━━━
