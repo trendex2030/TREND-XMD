@@ -1,19 +1,19 @@
 // 📂 plugins/antidelete.js
 import pkg from "@whiskeysockets/baileys";
-const { proto, downloadContentFromMessage } = pkg;
+const { downloadContentFromMessage, proto } = pkg;
 import config from "../config.cjs";
 
 let antiDeleteEnabled = false;
-let cache = new Map(); // store messages temporarily
+let cache = new Map(); // key = chatId + messageId
 
-// Collect media stream into buffer
+// Helper: collect stream into buffer
 async function collectStream(stream) {
   const chunks = [];
   for await (const chunk of stream) chunks.push(chunk);
   return Buffer.concat(chunks);
 }
 
-const AntiDelete = async (m, Matrix) => {
+const AntiDelete = async (m) => {
   const prefix = config.PREFIX;
   const body = m.body || "";
   const cmd = body.startsWith(prefix)
@@ -21,53 +21,46 @@ const AntiDelete = async (m, Matrix) => {
     : "";
   const text = body.slice(prefix.length + cmd.length).trim().toLowerCase();
 
-  // ===== COMMAND HANDLER =====
   if (cmd === "antidelete") {
-    switch (text) {
-      case "on":
-        antiDeleteEnabled = true;
-        await m.reply("🛡️ Anti-Delete is now *ON*.\nDeleted messages will be recovered.");
-        break;
-
-      case "off":
-        antiDeleteEnabled = false;
-        cache.clear();
-        await m.reply("⚠️ Anti-Delete is now *OFF*.");
-        break;
-
-      case "stats":
-        await m.reply(
-          `📊 Anti-Delete Status:\n` +
-          `• Status: ${antiDeleteEnabled ? "🟢 Active" : "🔴 Inactive"}\n` +
-          `• Cached: ${cache.size} messages`
-        );
-        break;
-
-      default:
-        await m.reply(
-          `🛡️ *Anti-Delete Commands* 🛡️\n\n` +
-          `• ${prefix}antidelete on → Enable\n` +
-          `• ${prefix}antidelete off → Disable\n` +
-          `• ${prefix}antidelete stats → Show stats`
-        );
+    if (text === "on") {
+      antiDeleteEnabled = true;
+      return m.reply("🛡️ Anti-Delete is now *ON*.");
     }
-    return;
+    if (text === "off") {
+      antiDeleteEnabled = false;
+      cache.clear();
+      return m.reply("⚠️ Anti-Delete is now *OFF*.");
+    }
+    if (text === "stats") {
+      return m.reply(
+        `📊 Anti-Delete Status:\n` +
+        `• Status: ${antiDeleteEnabled ? "🟢 Active" : "🔴 Inactive"}\n` +
+        `• Cached: ${cache.size} messages`
+      );
+    }
+    return m.reply(
+      `🛡️ *Anti-Delete Commands* 🛡️\n\n` +
+      `• ${prefix}antidelete on → Enable\n` +
+      `• ${prefix}antidelete off → Disable\n` +
+      `• ${prefix}antidelete stats → Show stats`
+    );
   }
 };
 
-// ====== EVENT LISTENERS (bind once in index.js) ======
+// ====== Bind events (call once in index.js) ======
 export function bindAntiDelete(Matrix) {
-  // Cache incoming messages
+  // Save incoming messages
   Matrix.ev.on("messages.upsert", async ({ messages }) => {
-    if (!antiDeleteEnabled || !messages) return;
+    if (!antiDeleteEnabled) return;
     for (const msg of messages) {
       try {
         if (!msg.message || msg.key.fromMe) continue;
 
-        let type = Object.keys(msg.message)[0];
-        let content = null;
-        let media = null;
-        let mimetype = null;
+        const keyId = msg.key.id;
+        const chatId = msg.key.remoteJid;
+        const type = Object.keys(msg.message)[0];
+
+        let content = null, media = null, mimetype = null;
 
         if (["imageMessage", "videoMessage", "stickerMessage", "documentMessage", "audioMessage"].includes(type)) {
           const stream = await downloadContentFromMessage(msg.message[type], type.replace("Message", ""));
@@ -79,57 +72,59 @@ export function bindAntiDelete(Matrix) {
           content = msg.message.extendedTextMessage.text;
         }
 
-        cache.set(msg.key.id, {
+        cache.set(chatId + keyId, {
           type,
           content,
           media,
           mimetype,
           sender: msg.key.participant || msg.key.remoteJid,
-          chat: msg.key.remoteJid,
+          chat: chatId,
           timestamp: msg.messageTimestamp * 1000
         });
 
-        if (cache.size > 500) cache.delete([...cache.keys()][0]); // limit cache
+        if (cache.size > 500) cache.delete([...cache.keys()][0]); // keep memory clean
       } catch (err) {
         console.error("📥 Cache error:", err);
       }
     }
   });
 
-  // Recover deleted messages
-  Matrix.ev.on("messages.update", async updates => {
-    if (!antiDeleteEnabled || !updates) return;
+  // Recover when deleted
+  Matrix.ev.on("messages.update", async (updates) => {
+    if (!antiDeleteEnabled) return;
     for (const { key, update } of updates) {
       try {
-        const isDeleted =
-          update?.status === proto.WebMessageInfo.Status.DELETED ||
-          update?.messageStubType === proto.WebMessageInfo.StubType.REVOKE;
+        const revoked = update?.messageStubType === proto.WebMessageInfo.StubType.REVOKE;
+        if (!revoked) continue;
 
-        if (!isDeleted || !cache.has(key.id)) continue;
+        const cached = cache.get(key.remoteJid + key.id);
+        if (!cached) continue;
+        cache.delete(key.remoteJid + key.id);
 
-        const cached = cache.get(key.id);
-        cache.delete(key.id);
-
-        const destination = config.OWNER_NUMBER + "@s.whatsapp.net"; // send to your inbox
+        const destination = config.OWNER_NUMBER + "@s.whatsapp.net";
         const sender = cached.sender?.split("@")[0];
 
-        // Alert
         await Matrix.sendMessage(destination, {
           text:
-            `🚨 *Deleted Message Recovered!*\n` +
-            `• 👤 Sender: @${sender}\n` +
-            `• 📅 Time: ${new Date(cached.timestamp).toLocaleString()}\n` +
-            (cached.content ? `• 📝 Content: ${cached.content}` : ""),
-          mentions: [cached.sender]
+            `🚨 *Deleted Message Recovered!*\n\n` +
+            `👤 Sender: @${sender}\n` +
+            `💬 Content: ${cached.content || "[Media]"}\n` +
+            `🕒 Time: ${new Date(cached.timestamp).toLocaleString()}`,
+          mentions: [cached.sender],
         });
 
-        // Media resend
         if (cached.media) {
-          await Matrix.sendMessage(destination, {
-            [cached.type.replace("Message", "")]: cached.media,
-            mimetype: cached.mimetype,
-            caption: cached.type === "imageMessage" || cached.type === "videoMessage" ? "📌 Recovered Media" : ""
-          });
+          const msgObj = {};
+          if (cached.type === "imageMessage") msgObj.image = cached.media;
+          if (cached.type === "videoMessage") msgObj.video = cached.media;
+          if (cached.type === "stickerMessage") msgObj.sticker = cached.media;
+          if (cached.type === "documentMessage") msgObj.document = cached.media;
+          if (cached.type === "audioMessage") msgObj.audio = cached.media;
+
+          msgObj.mimetype = cached.mimetype;
+          msgObj.caption = "📌 Recovered Media";
+
+          await Matrix.sendMessage(destination, msgObj);
         }
       } catch (err) {
         console.error("♻️ Recovery error:", err);
