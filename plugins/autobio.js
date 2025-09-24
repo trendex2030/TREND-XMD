@@ -10,33 +10,35 @@ const autoBio = async (m, gss) => {
     const cmd = m.body.startsWith(prefix)
       ? m.body.slice(prefix.length).split(" ")[0].toLowerCase()
       : "";
-    const text = m.body.slice(prefix.length + cmd.length).trim().toLowerCase();
+    const text = m.body.slice(prefix.length + cmd.length).trim();
 
     if (cmd !== "autobio") return;
 
     // Enable autobio
-    if (text === "on") {
+    if (text.toLowerCase() === "on") {
       if (autoBioEnabled) return m.reply("✅ AutoBio is already running.");
 
       autoBioEnabled = true;
 
       autoBioInterval = setInterval(async () => {
         try {
-          const tz = config.TIMEZONE || "Africa/Nairobi"; // default timezone
-          const timeNow = moment().tz(tz).format("hh:mm:ss A - dddd, MMMM Do YYYY");
+          const tz = config.TIMEZONE || "Africa/Nairobi";
+          const timeNow = moment().tz(tz).format("hh:mm A");
 
-          await gss.updateProfileStatus(`⏰ ${timeNow}`);
-          console.log(`Bio updated: ${timeNow}`);
+          const statusMsg = `TREND-X IS ONLINE ✅ | ⏰ ${timeNow}`;
+
+          await gss.updateProfileStatus(statusMsg);
+          console.log(`✅ Bio updated: ${statusMsg}`);
         } catch (err) {
           console.error("❌ Failed to update bio:", err);
         }
-      }, 1000); // every second
+      }, 60 * 1000); // every 1 minute
 
-      await m.reply("✅ AutoBio enabled! Your bio will now update *every second* with real time.");
+      await m.reply("✅ AutoBio enabled! Bio will now show *TREND-X IS ONLINE + Time*.");
     }
 
     // Disable autobio
-    else if (text === "off") {
+    else if (text.toLowerCase() === "off") {
       if (!autoBioEnabled) return m.reply("⚠️ AutoBio is not running.");
 
       clearInterval(autoBioInterval);
@@ -47,9 +49,9 @@ const autoBio = async (m, gss) => {
     }
 
     // Show status
-    else if (text === "status") {
+    else if (text.toLowerCase() === "status") {
       const statusMsg = autoBioEnabled
-        ? "✅ AutoBio is currently *enabled* and updating every second."
+        ? "✅ AutoBio is currently *enabled* (showing 'TREND-X IS ONLINE + Time')."
         : "❌ AutoBio is currently *disabled*.";
       await m.reply(statusMsg);
     }
@@ -59,7 +61,7 @@ const autoBio = async (m, gss) => {
       await m.reply(
         `🛡️ *AutoBio Commands* 🛡️
         
-• ${prefix}autobio on      → Enable autobio (real-time, every second)
+• ${prefix}autobio on      → Enable autobio (TREND-X IS ONLINE + Time)
 • ${prefix}autobio off     → Disable autobio
 • ${prefix}autobio status  → Show autobio status`
       );
