@@ -1,76 +1,130 @@
+// anti-delete.js
+import pkg from '@whiskeysockets/baileys';
+const { proto, downloadContentFromMessage } = pkg;
 import config from '../config.cjs';
 import fs from 'fs';
+import path from 'path';
 
-let antideleteStatus = false;
+const DB_FILE = path.join(process.cwd(), "antidelete.json");
 
-const antiDelete = async (m, gss) => {
-  try {
-    const prefix = config.PREFIX;
-    const cmd = m.body.startsWith(prefix)
-      ? m.body.slice(prefix.length).split(' ')[0].toLowerCase()
-      : '';
-    const text = m.body.slice(prefix.length + cmd.length).trim();
+class AntiDeleteSystem {
+  constructor() {
+    this.enabled = config.ANTI_DELETE || false;
+    this.cacheExpiry = 1800000; // 30 mins
+    this.messageCache = new Map();
+    this.cleanupTimer = null;
 
-    // Toggle command
-    if (cmd === 'antidelete') {
-      antideleteStatus = !antideleteStatus;
-      return m.reply(
-        `🛡️ Anti-Delete is now *${antideleteStatus ? 'ON ✅' : 'OFF ❌'}*`
-      );
-    }
-  } catch (err) {
-    console.error('Error in antidelete plugin:', err);
+    this.loadDatabase();
+    this.startCleanup();
+    console.log("🛡️ Anti-Delete System Initialized");
   }
-};
 
-// Detect deleted messages
-const before = async (message, conn) => {
-  try {
-    if (!antideleteStatus) return;
+  async loadDatabase() {
+    try {
+      if (fs.existsSync(DB_FILE)) {
+        const data = await fs.promises.readFile(DB_FILE, 'utf8');
+        const entries = JSON.parse(data);
+        const now = Date.now();
+        const validEntries = entries.filter(([_, msg]) => now - msg.timestamp <= this.cacheExpiry);
+        this.messageCache = new Map(validEntries);
+        console.log(`📦 Loaded ${validEntries.length} cached messages`);
+      }
+    } catch (err) {
+      console.error("🔴 DB Load Error:", err);
+      this.messageCache = new Map();
+    }
+  }
 
-    if (message.message?.protocolMessage?.type === 0) {
-      const deletedKey = message.message.protocolMessage.key;
-      const chat = deletedKey.remoteJid;
-      const msgId = deletedKey.id;
+  async saveDatabase() {
+    try {
+      const data = JSON.stringify(Array.from(this.messageCache.entries()));
+      await fs.promises.writeFile(DB_FILE, data);
+    } catch (err) {
+      console.error("🔴 DB Save Error:", err);
+    }
+  }
 
-      // recover the deleted message from store
-      const storedMsg = await conn.loadMessage(chat, msgId);
-      if (!storedMsg) return;
+  async addMessage(id, msg) {
+    this.messageCache.set(id, msg);
+    await this.saveDatabase();
+  }
 
-      const ownerJid = config.OWNER_NUMBER + '@s.whatsapp.net';
+  async deleteMessage(id) {
+    this.messageCache.delete(id);
+    await this.saveDatabase();
+  }
 
-      // handle media or text
-      if (storedMsg.message?.conversation) {
-        await conn.sendMessage(ownerJid, {
-          text: `🗑️ *Deleted Message Detected!*\n\nFrom: ${
-            deletedKey.participant || chat
-          }\n\nContent: ${storedMsg.message.conversation}`,
-        });
-      } else {
-        const type = Object.keys(storedMsg.message)[0];
-        if (
-          type === 'imageMessage' ||
-          type === 'videoMessage' ||
-          type === 'documentMessage' ||
-          type === 'audioMessage' ||
-          type === 'stickerMessage'
-        ) {
-          const buffer = await conn.downloadMediaMessage(storedMsg);
-          const caption = `🗑️ *Deleted ${type.replace(
-            'Message',
-            ''
-          )} detected!*\n\nFrom: ${deletedKey.participant || chat}`;
-          await conn.sendMessage(
-            ownerJid,
-            { [type.replace('Message', '')]: buffer, caption },
-            { quoted: storedMsg }
-          );
+  startCleanup() {
+    if (this.cleanupTimer) clearInterval(this.cleanupTimer);
+    this.cleanupTimer = setInterval(() => {
+      const now = Date.now();
+      let cleaned = 0;
+      for (const [key, msg] of this.messageCache.entries()) {
+        if (now - msg.timestamp > this.cacheExpiry) {
+          this.messageCache.delete(key);
+          cleaned++;
         }
       }
-    }
-  } catch (err) {
-    console.error('Error handling deleted message:', err);
+      if (cleaned) this.saveDatabase();
+    }, 5 * 60 * 1000);
   }
-};
 
-export default { onStart: antiDelete, before };
+  formatTime(ts) {
+    return new Date(ts).toLocaleString('en-US', { hour12: true });
+  }
+}
+
+export const antiDelete = new AntiDeleteSystem();
+
+// Attach listeners ONCE
+export function registerAntiDelete(Matrix) {
+  // Cache incoming messages
+  Matrix.ev.on("messages.upsert", async ({ messages, type }) => {
+    if (!antiDelete.enabled || type !== 'notify' || !messages?.length) return;
+
+    for (const msg of messages) {
+      if (msg.key.fromMe || msg.key.remoteJid === 'status@broadcast') continue;
+
+      const id = msg.key.id;
+      const sender = msg.key.participant || msg.key.remoteJid;
+
+      const entry = {
+        type: Object.keys(msg.message || {})[0],
+        content: msg.message.conversation || msg.message.extendedTextMessage?.text || null,
+        timestamp: Date.now(),
+        sender,
+        chatJid: msg.key.remoteJid
+      };
+
+      antiDelete.addMessage(id, entry);
+    }
+  });
+
+  // Recover deleted messages
+  Matrix.ev.on("messages.update", async updates => {
+    if (!antiDelete.enabled) return;
+
+    for (const update of updates) {
+      const { key, update: status } = update;
+      const isDeleted = status?.messageStubType === proto.WebMessageInfo.StubType.REVOKE ||
+                        status?.status === proto.WebMessageInfo.Status.DELETED;
+
+      if (!isDeleted || !antiDelete.messageCache.has(key.id)) continue;
+
+      const cached = antiDelete.messageCache.get(key.id);
+      await antiDelete.deleteMessage(key.id);
+
+      const dest = config.OWNER_NUMBER + "@s.whatsapp.net"; // send recovered msg to owner
+
+      await Matrix.sendMessage(dest, {
+        text: `🚨 *Deleted Message Recovered!*
+▪ Sender: @${cached.sender.split('@')[0]}
+▪ Chat: ${cached.chatJid}
+▪ Time: ${antiDelete.formatTime(cached.timestamp)}
+📝 Content: ${cached.content || '⚠️ (media or empty)'}`
+      }, { mentions: [cached.sender] });
+    }
+  });
+
+  console.log("✅ Anti-Delete listeners registered");
+      }
