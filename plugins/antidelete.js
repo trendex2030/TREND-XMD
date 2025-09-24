@@ -1,130 +1,141 @@
-// anti-delete.js
-import pkg from '@whiskeysockets/baileys';
+// 📂 plugins/antidelete.js
+import pkg from "@whiskeysockets/baileys";
 const { proto, downloadContentFromMessage } = pkg;
-import config from '../config.cjs';
-import fs from 'fs';
-import path from 'path';
+import config from "../config.cjs";
 
-const DB_FILE = path.join(process.cwd(), "antidelete.json");
+let antiDeleteEnabled = false;
+let cache = new Map(); // store messages temporarily
 
-class AntiDeleteSystem {
-  constructor() {
-    this.enabled = config.ANTI_DELETE || false;
-    this.cacheExpiry = 1800000; // 30 mins
-    this.messageCache = new Map();
-    this.cleanupTimer = null;
-
-    this.loadDatabase();
-    this.startCleanup();
-    console.log("🛡️ Anti-Delete System Initialized");
-  }
-
-  async loadDatabase() {
-    try {
-      if (fs.existsSync(DB_FILE)) {
-        const data = await fs.promises.readFile(DB_FILE, 'utf8');
-        const entries = JSON.parse(data);
-        const now = Date.now();
-        const validEntries = entries.filter(([_, msg]) => now - msg.timestamp <= this.cacheExpiry);
-        this.messageCache = new Map(validEntries);
-        console.log(`📦 Loaded ${validEntries.length} cached messages`);
-      }
-    } catch (err) {
-      console.error("🔴 DB Load Error:", err);
-      this.messageCache = new Map();
-    }
-  }
-
-  async saveDatabase() {
-    try {
-      const data = JSON.stringify(Array.from(this.messageCache.entries()));
-      await fs.promises.writeFile(DB_FILE, data);
-    } catch (err) {
-      console.error("🔴 DB Save Error:", err);
-    }
-  }
-
-  async addMessage(id, msg) {
-    this.messageCache.set(id, msg);
-    await this.saveDatabase();
-  }
-
-  async deleteMessage(id) {
-    this.messageCache.delete(id);
-    await this.saveDatabase();
-  }
-
-  startCleanup() {
-    if (this.cleanupTimer) clearInterval(this.cleanupTimer);
-    this.cleanupTimer = setInterval(() => {
-      const now = Date.now();
-      let cleaned = 0;
-      for (const [key, msg] of this.messageCache.entries()) {
-        if (now - msg.timestamp > this.cacheExpiry) {
-          this.messageCache.delete(key);
-          cleaned++;
-        }
-      }
-      if (cleaned) this.saveDatabase();
-    }, 5 * 60 * 1000);
-  }
-
-  formatTime(ts) {
-    return new Date(ts).toLocaleString('en-US', { hour12: true });
-  }
+// Collect media stream into buffer
+async function collectStream(stream) {
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  return Buffer.concat(chunks);
 }
 
-export const antiDelete = new AntiDeleteSystem();
+const AntiDelete = async (m, Matrix) => {
+  const prefix = config.PREFIX;
+  const body = m.body || "";
+  const cmd = body.startsWith(prefix)
+    ? body.slice(prefix.length).split(" ")[0].toLowerCase()
+    : "";
+  const text = body.slice(prefix.length + cmd.length).trim().toLowerCase();
 
-// Attach listeners ONCE
-export function registerAntiDelete(Matrix) {
+  // ===== COMMAND HANDLER =====
+  if (cmd === "antidelete") {
+    switch (text) {
+      case "on":
+        antiDeleteEnabled = true;
+        await m.reply("🛡️ Anti-Delete is now *ON*.\nDeleted messages will be recovered.");
+        break;
+
+      case "off":
+        antiDeleteEnabled = false;
+        cache.clear();
+        await m.reply("⚠️ Anti-Delete is now *OFF*.");
+        break;
+
+      case "stats":
+        await m.reply(
+          `📊 Anti-Delete Status:\n` +
+          `• Status: ${antiDeleteEnabled ? "🟢 Active" : "🔴 Inactive"}\n` +
+          `• Cached: ${cache.size} messages`
+        );
+        break;
+
+      default:
+        await m.reply(
+          `🛡️ *Anti-Delete Commands* 🛡️\n\n` +
+          `• ${prefix}antidelete on → Enable\n` +
+          `• ${prefix}antidelete off → Disable\n` +
+          `• ${prefix}antidelete stats → Show stats`
+        );
+    }
+    return;
+  }
+};
+
+// ====== EVENT LISTENERS (bind once in index.js) ======
+export function bindAntiDelete(Matrix) {
   // Cache incoming messages
-  Matrix.ev.on("messages.upsert", async ({ messages, type }) => {
-    if (!antiDelete.enabled || type !== 'notify' || !messages?.length) return;
-
+  Matrix.ev.on("messages.upsert", async ({ messages }) => {
+    if (!antiDeleteEnabled || !messages) return;
     for (const msg of messages) {
-      if (msg.key.fromMe || msg.key.remoteJid === 'status@broadcast') continue;
+      try {
+        if (!msg.message || msg.key.fromMe) continue;
 
-      const id = msg.key.id;
-      const sender = msg.key.participant || msg.key.remoteJid;
+        let type = Object.keys(msg.message)[0];
+        let content = null;
+        let media = null;
+        let mimetype = null;
 
-      const entry = {
-        type: Object.keys(msg.message || {})[0],
-        content: msg.message.conversation || msg.message.extendedTextMessage?.text || null,
-        timestamp: Date.now(),
-        sender,
-        chatJid: msg.key.remoteJid
-      };
+        if (["imageMessage", "videoMessage", "stickerMessage", "documentMessage", "audioMessage"].includes(type)) {
+          const stream = await downloadContentFromMessage(msg.message[type], type.replace("Message", ""));
+          media = await collectStream(stream);
+          mimetype = msg.message[type].mimetype;
+        } else if (msg.message.conversation) {
+          content = msg.message.conversation;
+        } else if (msg.message.extendedTextMessage?.text) {
+          content = msg.message.extendedTextMessage.text;
+        }
 
-      antiDelete.addMessage(id, entry);
+        cache.set(msg.key.id, {
+          type,
+          content,
+          media,
+          mimetype,
+          sender: msg.key.participant || msg.key.remoteJid,
+          chat: msg.key.remoteJid,
+          timestamp: msg.messageTimestamp * 1000
+        });
+
+        if (cache.size > 500) cache.delete([...cache.keys()][0]); // limit cache
+      } catch (err) {
+        console.error("📥 Cache error:", err);
+      }
     }
   });
 
   // Recover deleted messages
   Matrix.ev.on("messages.update", async updates => {
-    if (!antiDelete.enabled) return;
+    if (!antiDeleteEnabled || !updates) return;
+    for (const { key, update } of updates) {
+      try {
+        const isDeleted =
+          update?.status === proto.WebMessageInfo.Status.DELETED ||
+          update?.messageStubType === proto.WebMessageInfo.StubType.REVOKE;
 
-    for (const update of updates) {
-      const { key, update: status } = update;
-      const isDeleted = status?.messageStubType === proto.WebMessageInfo.StubType.REVOKE ||
-                        status?.status === proto.WebMessageInfo.Status.DELETED;
+        if (!isDeleted || !cache.has(key.id)) continue;
 
-      if (!isDeleted || !antiDelete.messageCache.has(key.id)) continue;
+        const cached = cache.get(key.id);
+        cache.delete(key.id);
 
-      const cached = antiDelete.messageCache.get(key.id);
-      await antiDelete.deleteMessage(key.id);
+        const destination = config.OWNER_NUMBER + "@s.whatsapp.net"; // send to your inbox
+        const sender = cached.sender?.split("@")[0];
 
-      const dest = config.OWNER_NUMBER + "@s.whatsapp.net"; // send recovered msg to owner
+        // Alert
+        await Matrix.sendMessage(destination, {
+          text:
+            `🚨 *Deleted Message Recovered!*\n` +
+            `• 👤 Sender: @${sender}\n` +
+            `• 📅 Time: ${new Date(cached.timestamp).toLocaleString()}\n` +
+            (cached.content ? `• 📝 Content: ${cached.content}` : ""),
+          mentions: [cached.sender]
+        });
 
-      await Matrix.sendMessage(dest, {
-        text: `🚨 *Deleted Message Recovered!*
-▪ Sender: @${cached.sender.split('@')[0]}
-▪ Chat: ${cached.chatJid}
-▪ Time: ${antiDelete.formatTime(cached.timestamp)}
-📝 Content: ${cached.content || '⚠️ (media or empty)'}`
-      }, { mentions: [cached.sender] });
+        // Media resend
+        if (cached.media) {
+          await Matrix.sendMessage(destination, {
+            [cached.type.replace("Message", "")]: cached.media,
+            mimetype: cached.mimetype,
+            caption: cached.type === "imageMessage" || cached.type === "videoMessage" ? "📌 Recovered Media" : ""
+          });
+        }
+      } catch (err) {
+        console.error("♻️ Recovery error:", err);
+      }
     }
   });
+}
 
-  console.log("✅ Anti-Delete listeners registered");
-      }
+export default AntiDelete;
