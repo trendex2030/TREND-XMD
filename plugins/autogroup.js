@@ -13,12 +13,18 @@ const groupControl = async (m, Matrix) => {
 
     if (!m.isGroup) return m.reply("⚠️ This command only works in groups.");
 
+    // Get group metadata
     const metadata = await Matrix.groupMetadata(m.chat);
     const admins = metadata.participants
-      .filter((p) => p.admin !== null)
+      .filter((p) => p.admin)
       .map((p) => p.id);
 
-    const botId = Matrix.user.id.split(":")[0] + "@s.whatsapp.net";
+    // Normalize bot JID
+    const botId = (Matrix.user.id.includes(":")
+      ? Matrix.user.id.split(":")[0]
+      : Matrix.user.id
+    ).replace(/[^0-9]/g, "") + "@s.whatsapp.net";
+
     const isBotAdmin = admins.includes(botId);
     const isUserAdmin = admins.includes(m.sender);
 
@@ -26,17 +32,17 @@ const groupControl = async (m, Matrix) => {
     if (!isBotAdmin) return m.reply("⚠️ I must be *admin* to manage the group.");
 
     if (cmd === "close") {
-      await Matrix.groupSettingUpdate(m.chat, "announcement"); // only admins can send
+      await Matrix.groupSettingUpdate(m.chat, "announcement");
       return m.reply("🔒 Group has been *closed* (only admins can chat).");
     }
 
     if (cmd === "open") {
-      await Matrix.groupSettingUpdate(m.chat, "not_announcement"); // everyone can send
+      await Matrix.groupSettingUpdate(m.chat, "not_announcement");
       return m.reply("🔓 Group has been *opened* (everyone can chat).");
     }
   } catch (err) {
     console.error("❌ GroupControl Error:", err);
-    return m.reply("⚠️ Failed to update group settings. Check logs.");
+    return m.reply("⚠️ Failed to update group settings. Maybe I'm not admin?");
   }
 };
 
