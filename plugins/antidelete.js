@@ -5,26 +5,22 @@ let antiDeleteEnabled = true; // default ON
 
 const antidelete = async (m, Matrix) => {
   try {
-    // === Command Handling ===
-    if (m.body?.startsWith(config.PREFIX)) {
-      const [cmd, arg] = m.body.slice(config.PREFIX.length).trim().split(" ");
+    if (!m.body?.startsWith(config.PREFIX)) return;
+    const [cmd, arg] = m.body.slice(config.PREFIX.length).trim().split(" ");
 
-      if (cmd.toLowerCase() === "antidelete") {
-        if (!arg) {
-          return m.reply(
-            `📢 AntiDelete is currently: ${antiDeleteEnabled ? "✅ ON" : "❌ OFF"}`
-          );
-        }
-
-        if (arg.toLowerCase() === "on") {
-          antiDeleteEnabled = true;
-          return m.reply("✅ AntiDelete has been enabled!");
-        }
-
-        if (arg.toLowerCase() === "off") {
-          antiDeleteEnabled = false;
-          return m.reply("❌ AntiDelete has been disabled!");
-        }
+    if (cmd.toLowerCase() === "antidelete") {
+      if (!arg) {
+        return m.reply(
+          `📢 AntiDelete is: ${antiDeleteEnabled ? "✅ ON" : "❌ OFF"}`
+        );
+      }
+      if (arg.toLowerCase() === "on") {
+        antiDeleteEnabled = true;
+        return m.reply("✅ AntiDelete has been enabled!");
+      }
+      if (arg.toLowerCase() === "off") {
+        antiDeleteEnabled = false;
+        return m.reply("❌ AntiDelete has been disabled!");
       }
     }
   } catch (e) {
@@ -32,30 +28,36 @@ const antidelete = async (m, Matrix) => {
   }
 };
 
-// === Bind delete event listener ===
+// === Bind deleted message recovery ===
 export function bindAntiDelete(Matrix) {
-  Matrix.ev.on("messages.delete", async (del) => {
+  Matrix.ev.on("messages.update", async (updates) => {
     try {
       if (!antiDeleteEnabled) return;
 
-      const jid = del.keys[0].remoteJid;
-      const from = del.keys[0].participant || jid;
-      const msgId = del.keys[0].id;
+      for (const { key, update } of updates) {
+        // Check if it's a revoke event
+        if (update.messageStubType !== 1) continue;
 
-      // Fetch deleted message
-      const deletedMsg = await Matrix.loadMessage(jid, msgId);
-      if (!deletedMsg) return;
+        const jid = key.remoteJid;
+        const msgId = key.id;
+        const from = key.participant || jid;
 
-      // Forward deleted message to OWNER inbox
-      await Matrix.sendMessage(config.OWNER_NUMBER + "@s.whatsapp.net", {
-        text: `🗑 Deleted message detected\n\n👤 From: ${from}\n📍 Chat: ${jid}\n\nForwarded below 👇`
-      });
+        // Load the deleted message from store
+        const deletedMsg = await Matrix.loadMessage(jid, msgId);
+        if (!deletedMsg) return;
 
-      await Matrix.sendMessage(config.OWNER_NUMBER + "@s.whatsapp.net", {
-        forward: deletedMsg
-      });
+        // Notify owner
+        await Matrix.sendMessage(config.OWNER_NUMBER + "@s.whatsapp.net", {
+          text: `🚨 *Deleted Message Recovered!*\n\n👤 From: ${from}\n📍 Chat: ${jid}\n\nForwarded below 👇`
+        });
+
+        // Forward the deleted message itself
+        await Matrix.sendMessage(config.OWNER_NUMBER + "@s.whatsapp.net", {
+          forward: deletedMsg,
+        });
+      }
     } catch (err) {
-      console.error("Error forwarding deleted message:", err);
+      console.error("❌ AntiDelete error:", err);
     }
   });
 }
