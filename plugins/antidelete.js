@@ -1,5 +1,5 @@
 import fs from 'fs';
-import config from '../../config.cjs';
+import config from '../config.cjs';
 import pkg from '@whiskeysockets/baileys';
 
 const { proto, downloadContentFromMessage } = pkg;
