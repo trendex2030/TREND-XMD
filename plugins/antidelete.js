@@ -24,7 +24,7 @@ const AntiDelete = async (m) => {
   if (cmd === "antidelete") {
     if (text === "on") {
       antiDeleteEnabled = true;
-      return m.reply("🛡️ Anti-Delete is now *ON*.");
+      return m.reply("🛡️ Anti-Delete is now *ON*.\nDeleted messages will be sent to your inbox.");
     }
     if (text === "off") {
       antiDeleteEnabled = false;
@@ -47,9 +47,9 @@ const AntiDelete = async (m) => {
   }
 };
 
-// ====== Bind events (call once in index.js) ======
+// ====== Bind events ======
 export function bindAntiDelete(Matrix) {
-  // Save incoming messages
+  // Cache incoming messages
   Matrix.ev.on("messages.upsert", async ({ messages }) => {
     if (!antiDeleteEnabled) return;
     for (const msg of messages) {
@@ -79,10 +79,10 @@ export function bindAntiDelete(Matrix) {
           mimetype,
           sender: msg.key.participant || msg.key.remoteJid,
           chat: chatId,
-          timestamp: msg.messageTimestamp * 1000
+          timestamp: msg.messageTimestamp * 1000,
         });
 
-        if (cache.size > 500) cache.delete([...cache.keys()][0]); // keep memory clean
+        if (cache.size > 500) cache.delete([...cache.keys()][0]); // prevent memory leak
       } catch (err) {
         console.error("📥 Cache error:", err);
       }
@@ -94,7 +94,10 @@ export function bindAntiDelete(Matrix) {
     if (!antiDeleteEnabled) return;
     for (const { key, update } of updates) {
       try {
-        const revoked = update?.messageStubType === proto.WebMessageInfo.StubType.REVOKE;
+        const revoked =
+          update?.messageStubType === proto.WebMessageInfo.StubType.REVOKE ||
+          update?.message?.protocolMessage?.type === proto.Message.ProtocolMessage.Type.REVOKE;
+
         if (!revoked) continue;
 
         const cached = cache.get(key.remoteJid + key.id);
@@ -104,6 +107,7 @@ export function bindAntiDelete(Matrix) {
         const destination = config.OWNER_NUMBER + "@s.whatsapp.net";
         const sender = cached.sender?.split("@")[0];
 
+        // Send recovered text
         await Matrix.sendMessage(destination, {
           text:
             `🚨 *Deleted Message Recovered!*\n\n` +
@@ -113,6 +117,7 @@ export function bindAntiDelete(Matrix) {
           mentions: [cached.sender],
         });
 
+        // Send recovered media if exists
         if (cached.media) {
           const msgObj = {};
           if (cached.type === "imageMessage") msgObj.image = cached.media;
