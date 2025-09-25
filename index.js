@@ -10,6 +10,7 @@ import {
 } from '@whiskeysockets/baileys';
 import { Handler, Callupdate, GroupUpdate } from './data/index.js';
 import express from 'express';
+import antidelete from "./plugins/antidelete.js";
 import pino from 'pino';
 import fs from 'fs';
 import { File } from 'megajs';
@@ -115,6 +116,7 @@ Matrix.ev.on('connection.update', (update) => {
     } else if (connection === 'open') {
         if (initialConnection) {
             console.log(chalk.green("Connected Successfully TREND-X 𓅓"));
+            antidelete.bindAntiDelete(Matrix);
             Matrix.sendMessage(Matrix.user.id, { 
                 image: { url: "https://files.catbox.moe/adymbp.jpg" }, 
                 caption: `┏──────────────⊷
