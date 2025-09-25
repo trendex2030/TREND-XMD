@@ -25,7 +25,7 @@ const play = async (m, gss) => {
       const videoUrl = firstResult.url;
 
       // First API endpoint
-      const apiUrl = `https://apis.davidcyriltech.my.id/download/ytmp3?url=${videoUrl}`;
+      const apiUrl = `https://apis.davidcyriltech.my.id/play?query=${videoUrl}`;
       const response = await axios.get(apiUrl);
 
       if (!response.data.success) {
