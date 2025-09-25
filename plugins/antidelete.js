@@ -1,141 +1,84 @@
-// 📂 plugins/antidelete.js
-import pkg from "@whiskeysockets/baileys";
-const { downloadContentFromMessage, proto } = pkg;
+// plugins/antidelete.js
+import fs from "fs";
+import path from "path";
 import config from "../config.cjs";
 
-let antiDeleteEnabled = false;
-let cache = new Map(); // key = chatId + messageId
+const DB_FILE = path.join(process.cwd(), "antidelete.json");
 
-// Helper: collect stream into buffer
-async function collectStream(stream) {
-  const chunks = [];
-  for await (const chunk of stream) chunks.push(chunk);
-  return Buffer.concat(chunks);
+// Load status from file
+function loadStatus() {
+  if (!fs.existsSync(DB_FILE)) return { enabled: false };
+  try {
+    return JSON.parse(fs.readFileSync(DB_FILE, "utf-8"));
+  } catch {
+    return { enabled: false };
+  }
 }
 
-const AntiDelete = async (m) => {
-  const prefix = config.PREFIX;
-  const body = m.body || "";
-  const cmd = body.startsWith(prefix)
-    ? body.slice(prefix.length).split(" ")[0].toLowerCase()
-    : "";
-  const text = body.slice(prefix.length + cmd.length).trim().toLowerCase();
+// Save status
+function saveStatus(data) {
+  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+}
 
-  if (cmd === "antidelete") {
-    if (text === "on") {
-      antiDeleteEnabled = true;
-      return m.reply("🛡️ Anti-Delete is now *ON*.\nDeleted messages will be sent to your inbox.");
+const antidelete = {
+  bindAntiDelete(Matrix) {
+    const status = loadStatus();
+    if (!status.enabled) return;
+
+    Matrix.ev.on("messages.delete", async (del) => {
+      try {
+        const jid = del.keys[0].remoteJid;
+        const from = del.keys[0].participant || jid;
+        const msgId = del.keys[0].id;
+
+        // Fetch the deleted message
+        const deletedMsg = await Matrix.loadMessage(jid, msgId);
+        if (!deletedMsg) return;
+
+        // Forward deleted message to owner inbox
+        await Matrix.sendMessage(config.OWNER_NUMBER + "@s.whatsapp.net", {
+          text: `🗑 Deleted message detected\n\n👤 From: ${from}\n📍 Chat: ${jid}\n\nForwarded below 👇`
+        });
+
+        await Matrix.sendMessage(config.OWNER_NUMBER + "@s.whatsapp.net", {
+          forward: deletedMsg
+        });
+      } catch (e) {
+        console.error("Error in AntiDelete:", e);
+      }
+    });
+
+    console.log("✅ AntiDelete listeners bound");
+  },
+
+  async handleAntiDeleteCommand(m, Matrix) {
+    const prefix = config.PREFIX;
+    if (!m.message?.conversation?.startsWith(prefix)) return;
+
+    const body = m.message.conversation.trim();
+    const [cmd, arg] = body.slice(prefix.length).split(" ");
+
+    if (cmd === "antidelete") {
+      let status = loadStatus();
+
+      if (!arg) {
+        return Matrix.sendMessage(m.key.remoteJid, { 
+          text: `📢 AntiDelete is currently: ${status.enabled ? "✅ ON" : "❌ OFF"}`
+        });
+      }
+
+      if (arg.toLowerCase() === "on") {
+        status.enabled = true;
+        saveStatus(status);
+        Matrix.sendMessage(m.key.remoteJid, { text: "✅ AntiDelete enabled!" });
+        this.bindAntiDelete(Matrix); // bind immediately
+      } else if (arg.toLowerCase() === "off") {
+        status.enabled = false;
+        saveStatus(status);
+        Matrix.sendMessage(m.key.remoteJid, { text: "❌ AntiDelete disabled!" });
+      }
     }
-    if (text === "off") {
-      antiDeleteEnabled = false;
-      cache.clear();
-      return m.reply("⚠️ Anti-Delete is now *OFF*.");
-    }
-    if (text === "stats") {
-      return m.reply(
-        `📊 Anti-Delete Status:\n` +
-        `• Status: ${antiDeleteEnabled ? "🟢 Active" : "🔴 Inactive"}\n` +
-        `• Cached: ${cache.size} messages`
-      );
-    }
-    return m.reply(
-      `🛡️ *Anti-Delete Commands* 🛡️\n\n` +
-      `• ${prefix}antidelete on → Enable\n` +
-      `• ${prefix}antidelete off → Disable\n` +
-      `• ${prefix}antidelete stats → Show stats`
-    );
   }
 };
 
-// ====== Bind events ======
-export function bindAntiDelete(Matrix) {
-  // Cache incoming messages
-  Matrix.ev.on("messages.upsert", async ({ messages }) => {
-    if (!antiDeleteEnabled) return;
-    for (const msg of messages) {
-      try {
-        if (!msg.message || msg.key.fromMe) continue;
-
-        const keyId = msg.key.id;
-        const chatId = msg.key.remoteJid;
-        const type = Object.keys(msg.message)[0];
-
-        let content = null, media = null, mimetype = null;
-
-        if (["imageMessage", "videoMessage", "stickerMessage", "documentMessage", "audioMessage"].includes(type)) {
-          const stream = await downloadContentFromMessage(msg.message[type], type.replace("Message", ""));
-          media = await collectStream(stream);
-          mimetype = msg.message[type].mimetype;
-        } else if (msg.message.conversation) {
-          content = msg.message.conversation;
-        } else if (msg.message.extendedTextMessage?.text) {
-          content = msg.message.extendedTextMessage.text;
-        }
-
-        cache.set(chatId + keyId, {
-          type,
-          content,
-          media,
-          mimetype,
-          sender: msg.key.participant || msg.key.remoteJid,
-          chat: chatId,
-          timestamp: msg.messageTimestamp * 1000,
-        });
-
-        if (cache.size > 500) cache.delete([...cache.keys()][0]); // prevent memory leak
-      } catch (err) {
-        console.error("📥 Cache error:", err);
-      }
-    }
-  });
-
-  // Recover when deleted
-  Matrix.ev.on("messages.update", async (updates) => {
-    if (!antiDeleteEnabled) return;
-    for (const { key, update } of updates) {
-      try {
-        const revoked =
-          update?.messageStubType === proto.WebMessageInfo.StubType.REVOKE ||
-          update?.message?.protocolMessage?.type === proto.Message.ProtocolMessage.Type.REVOKE;
-
-        if (!revoked) continue;
-
-        const cached = cache.get(key.remoteJid + key.id);
-        if (!cached) continue;
-        cache.delete(key.remoteJid + key.id);
-
-        const destination = config.OWNER_NUMBER + "@s.whatsapp.net";
-        const sender = cached.sender?.split("@")[0];
-
-        // Send recovered text
-        await Matrix.sendMessage(destination, {
-          text:
-            `🚨 *Deleted Message Recovered!*\n\n` +
-            `👤 Sender: @${sender}\n` +
-            `💬 Content: ${cached.content || "[Media]"}\n` +
-            `🕒 Time: ${new Date(cached.timestamp).toLocaleString()}`,
-          mentions: [cached.sender],
-        });
-
-        // Send recovered media if exists
-        if (cached.media) {
-          const msgObj = {};
-          if (cached.type === "imageMessage") msgObj.image = cached.media;
-          if (cached.type === "videoMessage") msgObj.video = cached.media;
-          if (cached.type === "stickerMessage") msgObj.sticker = cached.media;
-          if (cached.type === "documentMessage") msgObj.document = cached.media;
-          if (cached.type === "audioMessage") msgObj.audio = cached.media;
-
-          msgObj.mimetype = cached.mimetype;
-          msgObj.caption = "📌 Recovered Media";
-
-          await Matrix.sendMessage(destination, msgObj);
-        }
-      } catch (err) {
-        console.error("♻️ Recovery error:", err);
-      }
-    }
-  });
-}
-
-export default AntiDelete;
+export default antidelete;
