@@ -16,8 +16,8 @@ const TEMP_DIR = path.join(__dirname, '.npm', 'xcache', ...deepLayers);
 // === GIT CONFIG ===
 const DOWNLOAD_URL = "https://github.com/trendex2005/TREND-XMD/archive/refs/heads/main.zip";
 const EXTRACT_DIR = path.join(TEMP_DIR, "TREND-XMD-main");
-const LOCAL_SETTINGS = path.join(__dirname, "config.js");
-const EXTRACTED_SETTINGS = path.join(EXTRACT_DIR, "config.js");
+const LOCAL_SETTINGS = path.join(__dirname, "config.cjs");
+const EXTRACTED_SETTINGS = path.join(EXTRACT_DIR, "config.cjs");
 
 // === HELPERS ===
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
